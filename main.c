@@ -23,76 +23,114 @@ int	is_whitespace(char c)
 	return (0);
 }
 
-void	read_word(char *line_read, int *i)
+void detect_redirections(char *line_read)
 {
-	int	j;
-	int	k;
-	char	c;
-
-	j = 0;
-	k = *i;
-	c = line_read[*i];
-	// skip whitespace
-	while (c && is_whitespace(c))
-	{
-		(*i)++;
-		c = line_read[*i];
-	}
-	while (c && !is_whitespace(c))
-	{
-		c = line_read[*i];
-		(*i)++;
-		j++;
-	}
-//	line_read[i] = 0;
-//	write(STDIN_FILENO, line_read, j);
-	while (j > 0 && line_read[k])
-	{
-		printf("%c", line_read[k]);
-		j--;
-		k++;
-	}
-}
-
-void	parse_line(char *line_read)
-{
-	int	i;
-	int	flag;
+	int i;
+	char c;
 
 	i = 0;
-	flag = 0;
-	while (line_read[i])
+	c = line_read[i];
+	while (c)
 	{
-//		if (flag && !is_whitespace(line_read[i]))
-//		{
-//			read_word(line_read, &i);
-//			flag = 0;
-//			continue ;
-//		}
-		if (line_read[i] == '>')
+		if (line_read[i] == '<')
 		{
+			// TODO:
+			// if end of string, or special chars
+			// or heredoc **IMPORTANT**
+
+			printf("found input redirection.\n");
+			// skip the redirection char,
 			i++;
-			printf("redirecting output to ");
-			read_word(line_read, &i);
+
+			// ensure we didnt reach end of line
+			// print out the filename that we should be opening
+
+			while (line_read[i] && line_read[i] == ' ')
+				i++;
+
+			// eventually we want to have this in its own string
+			// so we can pass it into open()
+
+
+
+			printf("opening file to read: ");
+			while (line_read[i] && line_read[i] != ' ')
+			{
+				printf("%c", line_read[i]);
+				i++;
+			}
 			printf("\n");
 		}
-		else if (line_read[i] == '<')
+		else if (c =='>')
 		{
+
+			// TODO:
+			// if end of string, or special chars
+			// or truncate **IMPORTANT**
+
+
+			printf("found output redirection.\n");
+			// skip the redirection char,
 			i++;
-			printf("taking input from ");
-			read_word(line_read, &i);
+
+			// ensure we didnt reach end of line
+			// skip spaces
+			while (line_read[i] && line_read[i] == ' ')
+				i++;
+
+			// print out the filename that we should be opening
+			// eventually we want to have this in its own string
+			// so we can pass it into open()
+
+
+			printf("opening file to write: ");
+
+			while (line_read[i] && line_read[i] != ' ')
+			{
+				printf("%c", line_read[i]);
+				i++;
+			}
 			printf("\n");
+
 		}
-		else
-			i++;
+		i++;
+		c = line_read[i];
 	}
+}
+void	parse_line(char *line_read)
+{
+	int i;
+
+	// detect pipes
+	//		opening pipe
+	//		forking
+	//		execve cmds, args
+	//		left of pipe
+	//		right of pipe
+	
+
+	 // detect_redirections(line_read);
+
+	int pid;
+
+	pid = fork();
+
+	if (pid == 0)
+	{
+		chdir("../");
+		exit (1);
+	}
+
 }
 
 int main(void)
 {
 	static char	*line_read;
 	int		i;
+	char	*cwd;
 
+
+	// cwd = malloc(400);
 	i = 0;
 	while (1)
 	{
@@ -101,7 +139,8 @@ int main(void)
 			free(line_read);
 			line_read = NULL;
 		}
-		line_read = readline("$> ");
+		cwd = getcwd(NULL, 200);
+		line_read = readline(cwd);
 		parse_line(line_read);
 		if (line_read && *line_read)
 			add_history(line_read);
@@ -111,4 +150,6 @@ int main(void)
 		free(line_read);
 		line_read = NULL;
 	}
+
+	free(cwd);
 }
