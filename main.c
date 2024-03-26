@@ -21,6 +21,10 @@
 void	*ft_realloc(void *ptr, size_t old_size, size_t size);
 char	**find_paths(char **envp);
 void	free_str(char **p);
+char	*check_valid_cmd(char **paths, char *cmd);
+void	run_child_command(char **paths, char **cmd);
+
+
 
 
 void	add_to_words(char ***words, char *str)
@@ -137,12 +141,20 @@ int main(int ac, char **av, char **envp)
 			add_history(line);
 
 		words = (char **) ft_calloc(1, sizeof(char *));
-
 		parse_quotes(line, &words);
+
+		int pid = fork();
+
+
+		if (pid == 0)
+		{
+			run_child_command(paths, words);
+			free(words);
+			break;
+		}
 		int j = 0;
 		while (words[j])
 		{
-			printf("%s\n", words[j]);
 			free_str(&words[j]);
 			j++;
 		}
@@ -203,4 +215,53 @@ void	*ft_realloc(void *ptr, size_t old_size, size_t size)
 	ft_memmove(res, ptr, maxcpy);
 	free(ptr);
 	return (res);
+}
+
+char	*check_valid_cmd(char **paths, char *cmd)
+{
+	int		j;
+	char	*cmdpath;
+	char	*binpath;
+
+	cmdpath = ft_strjoin("/", cmd);
+	j = 0;
+	while (paths && paths[j])
+	{
+		binpath = ft_strjoin(paths[j], cmdpath);
+		if (!access(binpath, X_OK))
+			break ;
+		free(binpath);
+		j++;
+	}
+	free(cmdpath);
+	if (paths[j] == NULL)
+		return (NULL);
+	return (binpath);
+}
+
+void	run_child_command(char **paths, char **cmd)
+{
+	char	*binpath;
+
+	if (cmd && cmd[0] && paths)
+		binpath = check_valid_cmd(paths, cmd[0]);
+	else
+		binpath = NULL;
+	if (!binpath)
+	{
+		ft_putstr_fd(cmd[0], STDERR_FILENO);
+		ft_putstr_fd(": command not found\n", STDERR_FILENO);
+		// close(p_fd[1]);
+		// dup2(p_fd[0], STDIN_FILENO);
+		// close(p_fd[0]);
+	}
+	else
+	{
+		// dup2(p_fd[1], STDOUT_FILENO);
+		// close(p_fd[1]);
+		execve(binpath, cmd, NULL);
+		perror("");
+		if (binpath)
+			free(binpath);
+	}
 }
