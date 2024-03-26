@@ -18,6 +18,9 @@
 #include <unistd.h> // write, getcwd
 #include <stdlib.h> // malloc, free
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
 void	*ft_realloc(void *ptr, size_t old_size, size_t size);
 char	**find_paths(char **envp);
 void	free_str(char **p);
@@ -125,7 +128,7 @@ int main(int ac, char **av, char **envp)
 	char	**words;
 
 
-	int i = 1;
+	int i = 0;
 
 	paths = find_paths(envp);
 
@@ -133,7 +136,7 @@ int main(int ac, char **av, char **envp)
 		printf("%s\n", paths[i++]);
 
 	line = NULL;
-	while (i--)
+	while (true)
 	{
 		free_str(&line);
 		line = readline("$> ");
@@ -143,16 +146,27 @@ int main(int ac, char **av, char **envp)
 		words = (char **) ft_calloc(1, sizeof(char *));
 		parse_quotes(line, &words);
 
-		int pid = fork();
-
-
-		if (pid == 0)
-		{
-			run_child_command(paths, words);
-			free(words);
-			break;
-		}
 		int j = 0;
+
+		if (words && *words)
+		{
+			int pid = fork();
+			if (pid == 0)
+			{
+				run_child_command(paths, words);
+				while (words[j])
+				{
+					free_str(&words[j]);
+					j++;
+				}
+				free(words);
+				break;
+			}
+			else
+				waitpid(pid, NULL, 0);
+		}
+
+		j = 0;
 		while (words[j])
 		{
 			free_str(&words[j]);
