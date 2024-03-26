@@ -29,11 +29,66 @@ void	run_child_command(char **paths, char **cmd);
 void	parse_quotes(char *line, char ***words);
 
 
+typedef struct s_cmd
+{
+	char	***words;
+	char	*input_redirect;
+	char	*output_redirect;
+}	t_cmd;
+
+void	check_redirects(t_cmd *cmd)
+{
+	int i = 0;
+
+	char ***words = cmd->words;
+
+	if (!*words)
+		return ;
+	while ((*words)[i])
+	{
+		if (!ft_strncmp((*words)[i], "<", 2))
+		{
+			printf("input redirection detected\n");
+			(*words)[i] = NULL;
+			if (i > 0 && *words[i - 1])
+			{
+				cmd->input_redirect = (*words)[i - 1];
+				(*words)[i] = NULL;
+			}
+			else
+				cmd->input_redirect = NULL; // redirect to stdin
+
+		}
+		else if (!ft_strncmp((*words)[i], ">", 2))
+		{
+			printf("output redirection detected\n");
+			(*words)[i] = NULL;
+			if (*words[i + 1])
+			{
+				cmd->output_redirect = (*words)[i + 1];
+				(*words)[i] = NULL; // not valid
+			}
+			else
+				cmd->output_redirect = NULL;
+		}
+		else if (!ft_strncmp((*words)[i], ">>", 3))
+		{
+			printf("append output\n");
+		}
+		else if (!ft_strncmp((*words)[i], "<<", 3))
+		{
+			printf("heredoc\n");
+		}
+		i++;
+	}
+}
+
 int main(int ac, char **av, char **envp)
 {
 	char	*line;
 	char	**paths;
 	char	**words;
+	
 
 
 	int i = 0;
@@ -44,20 +99,28 @@ int main(int ac, char **av, char **envp)
 		printf("%s\n", paths[i++]);
 
 	line = NULL;
+	words = NULL;
 	while (true)
 	{
 		free_str(&line);
 		line = readline("$> ");
 		if (line && *line)
+		{
 			add_history(line);
+			words = (char **) ft_calloc(1, sizeof(char *));
+			parse_quotes(line, &words);
+		}
 
-		words = (char **) ft_calloc(1, sizeof(char *));
-		parse_quotes(line, &words);
 
 		int j = 0;
 
 		if (words && *words)
 		{
+			t_cmd cmd;
+
+			cmd.words = &words;
+			check_redirects(&cmd);
+
 			int pid = fork();
 			if (pid == 0)
 			{
@@ -75,7 +138,7 @@ int main(int ac, char **av, char **envp)
 		}
 
 		j = 0;
-		while (words[j])
+		while (words && words[j])
 		{
 			free_str(&words[j]);
 			j++;
