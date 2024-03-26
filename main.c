@@ -90,7 +90,7 @@ void parse_quotes(char *line, char ***words)
 	j = -1;
 	qchar = 0;
 	qstart = NULL;
-	while (line[++j])
+	while (line && line[++j])
 	{
 		if (line[j] == '\'' || line[j] == '"')
 		{
@@ -103,7 +103,12 @@ void parse_quotes(char *line, char ***words)
 	{
 		qlen = process_subquote(line, words, qstart, qchar);
 		if (j + qlen < ft_strlen(line))
-			parse_quotes(line + j + qlen + 2, words);
+		{
+			if (line[j + qlen + 1] && (line[j + qlen + 1] == qchar))
+				j++;
+			j++;
+			parse_quotes(line + j + qlen, words);
+		}
 	}
 	else
 		split_line_by_space(words, line);
@@ -123,9 +128,6 @@ int main(int ac, char **av, char **envp)
 	while (paths[i])
 		printf("%s\n", paths[i++]);
 
-
-	words = (char **) ft_calloc(1, sizeof(char *));
-
 	line = NULL;
 	while (i--)
 	{
@@ -133,6 +135,9 @@ int main(int ac, char **av, char **envp)
 		line = readline("$> ");
 		if (line && *line)
 			add_history(line);
+
+		words = (char **) ft_calloc(1, sizeof(char *));
+
 		parse_quotes(line, &words);
 		int j = 0;
 		while (words[j])
@@ -141,8 +146,8 @@ int main(int ac, char **av, char **envp)
 			free_str(&words[j]);
 			j++;
 		}
+		free(words);
 	}
-	free(words);
 	free_str(&line);
 
 	i = 0;
