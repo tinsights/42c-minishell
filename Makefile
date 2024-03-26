@@ -1,7 +1,7 @@
 NAME = minishell
 
 # CFLAGS = -Wall -Werror -Wextra
-LIBFLAGS = -Llibft -lft
+LIBFLAGS = -Llibft -lft -lreadline
 INC = -Ilibft/includes
 
 LIBDIR = libft/
@@ -14,7 +14,7 @@ OBJS = $(SRCS:.c=.o)
 all: $(NAME)
 
 $(NAME): $(OBJS) $(LIBFT)
-	cc $(CFLAGS) -g $(OBJS) $(LIBFLAGS) $(INC) -o $(NAME)
+	cc $(CFLAGS) $(OBJS) $(LIBFLAGS) $(INC) -o $(NAME)
 
 $(OBJS): $(SRCS)
 	cc $(CFLAGS) -c $(SRCS) $(INC)

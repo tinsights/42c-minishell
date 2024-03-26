@@ -18,12 +18,149 @@
 #include <unistd.h> // write, getcwd
 #include <stdlib.h> // malloc, free
 
-void free_str(char *p)
+void	*ft_realloc(void *ptr, size_t old_size, size_t size);
+char	**find_paths(char **envp);
+void	free_str(char **p);
+
+
+void	add_to_words(char ***words, char *str)
 {
-	if (p)
+	int		num_strs;
+	size_t	size;
+
+	num_strs = 0;
+	while (*words && (*words)[num_strs] != NULL)
+		num_strs++;
+	size = (num_strs + 1) * sizeof(char *);
+	*words = (char **) ft_realloc(*words, size, size + sizeof(char *));
+	(*words)[num_strs] = str;
+	(*words)[num_strs + 1] = NULL;
+}
+
+
+void	split_line_by_space(char ***words, char *str)
+{
+	int		x;
+	char	**line;
+
+	x = 0;
+	line = ft_split(str, ' ');
+	while (line[x])
+		add_to_words(words, line[x++]);
+	free(line);
+}
+
+int	process_subquote(char *arg, char ***words, char *qstart, char qchar)
+{
+	int		qlen;
+	char	*cmd;
+	char	*qarg;
+
+	if (qstart != arg)
 	{
-		free(p);
-		p = NULL;
+		cmd = ft_substr(arg, 0, qstart - arg);
+		split_line_by_space(words, cmd);
+		free(cmd);
+	}
+	qlen = 0;
+	while (qstart[qlen + 1] && qstart[qlen + 1] != qchar)
+		qlen++;
+	if (qlen)
+	{
+		qarg = ft_substr(qstart, 1, qlen + 1);
+		add_to_words(words, qarg);
+		qarg[qlen] = 0;
+	}
+	return (qlen);
+}
+
+
+void parse_quotes(char *line, char ***words)
+{
+	// take whole line
+	// split into "words"
+	// if opening quote
+	// look for matching ending quote
+	// everything in quotes will be one word
+	char	*qstart;
+	char	qchar;
+	int		j;
+	int		qlen;
+
+	j = -1;
+	qchar = 0;
+	qstart = NULL;
+	while (line[++j])
+	{
+		if (line[j] == '\'' || line[j] == '"')
+		{
+			qstart = line + j;
+			qchar = line[j];
+			break ;
+		}
+	}
+	if (qstart)
+	{
+		qlen = process_subquote(line, words, qstart, qchar);
+		if (j + qlen < ft_strlen(line))
+			parse_quotes(line + j + qlen + 2, words);
+	}
+	else
+		split_line_by_space(words, line);
+}
+
+int main(int ac, char **av, char **envp)
+{
+	char	*line;
+	char	**paths;
+	char	**words;
+
+
+	int i = 1;
+
+	paths = find_paths(envp);
+
+	while (paths[i])
+		printf("%s\n", paths[i++]);
+
+
+	words = (char **) ft_calloc(1, sizeof(char *));
+
+	line = NULL;
+	while (i--)
+	{
+		free_str(&line);
+		line = readline("$> ");
+		if (line && *line)
+			add_history(line);
+		parse_quotes(line, &words);
+		int j = 0;
+		while (words[j])
+		{
+			printf("%s\n", words[j]);
+			free_str(&words[j]);
+			j++;
+		}
+	}
+	free(words);
+	free_str(&line);
+
+	i = 0;
+	while (paths[i])
+	{
+		free_str(&paths[i]);
+		i++;
+	}
+	free(paths);
+}
+
+
+void free_str(char **str)
+{
+	if (*str)
+	{
+		free(*str);
+		*str = NULL;
 	}
 }
 
@@ -40,32 +177,25 @@ char **find_paths(char **envp)
 	return paths;
 }
 
-int main(int ac, char **av, char **envp)
+void	*ft_realloc(void *ptr, size_t old_size, size_t size)
 {
-	char	*line;
-	char	**paths;
+	void	*res;
+	size_t	maxcpy;
 
-
-	int i = 1;
-
-	// paths = find_paths(envp);
-
-	// while (paths[i])
-	// 	printf("%s\n", paths[i++]);
-
-	line = NULL;
-	while (i--)
+	if (!size)
 	{
-		free_str(line);
-		line = readline("$> ");
-		if (line && *line)
-			add_history(line);
+		if (ptr)
+			free (ptr);
+		return (NULL);
 	}
-	free_str(line);
-
-	// while (paths)
-	// {
-	// 	free_str(*paths);
-	// 	paths++;
-	// }
+	if (!ptr)
+		return (ft_calloc(1, size));
+	res = ft_calloc(1, size);
+	if (size >= old_size)
+		maxcpy = old_size;
+	else
+		maxcpy = size;
+	ft_memmove(res, ptr, maxcpy);
+	free(ptr);
+	return (res);
 }
