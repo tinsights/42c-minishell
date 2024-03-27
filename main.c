@@ -25,9 +25,14 @@ void	*ft_realloc(void *ptr, size_t old_size, size_t size);
 char	**find_paths(char **envp);
 void	free_str(char **p);
 char	*check_valid_cmd(char **paths, char *cmd);
-void	run_child_command(char **paths, char **cmd);
+void	run_child_command(char **paths, char **cmd, char **envp);
 void	parse_quotes(char *line, char ***words);
 
+typedef struct s_redirect
+{
+	char	*file;
+	int		fd;
+} t_redirect;
 
 typedef struct s_cmd
 {
@@ -49,11 +54,11 @@ void	check_redirects(t_cmd *cmd)
 		if (!ft_strncmp((*words)[i], "<", 2))
 		{
 			printf("input redirection detected\n");
-			(*words)[i] = NULL;
-			if (i > 0 && *words[i - 1])
+			free_str((*words) + i);
+			if ((*words)[i + 1])
 			{
-				cmd->input_redirect = (*words)[i - 1];
-				(*words)[i] = NULL;
+				cmd->input_redirect = (*words)[i + 1];
+				(*words)[i] = NULL; // not valid
 			}
 			else
 				cmd->input_redirect = NULL; // redirect to stdin
@@ -62,11 +67,22 @@ void	check_redirects(t_cmd *cmd)
 		else if (!ft_strncmp((*words)[i], ">", 2))
 		{
 			printf("output redirection detected\n");
-			(*words)[i] = NULL;
-			if (*words[i + 1])
+
+			// move all pointers down
+			// keep track of number of pointers moved down
+			// set end N poiners to null?
+			free_str((*words) + i);
+			if ((*words)[i + 1])
 			{
 				cmd->output_redirect = (*words)[i + 1];
-				(*words)[i] = NULL; // not valid
+				(*words)[i + 1] = NULL;
+				int j = i;
+				while ((*words)[j + 2])
+				{
+					(*words)[j] = (*words)[j + 2]; // copying the pointer
+					(*words)[j + 2] = NULL; // not valid
+					j++;
+				}
 			}
 			else
 				cmd->output_redirect = NULL;
@@ -89,8 +105,6 @@ int main(int ac, char **av, char **envp)
 	char	**paths;
 	char	**words;
 	
-
-
 	int i = 0;
 
 	paths = find_paths(envp);
@@ -100,7 +114,7 @@ int main(int ac, char **av, char **envp)
 
 	line = NULL;
 	words = NULL;
-	while (true)
+	while (i--)
 	{
 		free_str(&line);
 		line = readline("$> ");
@@ -124,7 +138,7 @@ int main(int ac, char **av, char **envp)
 			int pid = fork();
 			if (pid == 0)
 			{
-				run_child_command(paths, words);
+				run_child_command(paths, words, envp);
 				while (words[j])
 				{
 					free_str(&words[j]);
@@ -263,12 +277,13 @@ char **find_paths(char **envp)
 	else
 		paths = (char **)(ft_calloc(1, sizeof(char *)));
 
-	// calc num of paths inorder to realloc first one to cwd
+	// calc num of paths in order to realloc first one to cwd
 	int i = 0;
 	while (paths[i])
 		i++;
-	paths = ft_realloc(paths, i * sizeof(char *), (i + 1) * sizeof(char *));
+	paths = ft_realloc(paths, i * sizeof(char *), (i + 2) * sizeof(char *));
 	paths[i] = getcwd(NULL, 500);
+	paths[i + 1] = NULL;
 	return paths;
 }
 
@@ -317,7 +332,7 @@ char	*check_valid_cmd(char **paths, char *cmd)
 	return (binpath);
 }
 
-void	run_child_command(char **paths, char **cmd)
+void	run_child_command(char **paths, char **cmd, char **envp)
 {
 	char	*binpath;
 
@@ -337,7 +352,7 @@ void	run_child_command(char **paths, char **cmd)
 	{
 		// dup2(p_fd[1], STDOUT_FILENO);
 		// close(p_fd[1]);
-		execve(binpath, cmd, NULL);
+		execve(binpath, cmd, envp);
 		perror("");
 		if (binpath)
 			free(binpath);
