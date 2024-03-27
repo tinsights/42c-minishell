@@ -14,12 +14,14 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <stdbool.h>
-// #include <stdio.h>
+#include <stdio.h> // open flags
 #include <unistd.h> // write, getcwd
 #include <stdlib.h> // malloc, free
 
 #include <sys/types.h>
 #include <sys/wait.h>
+
+#include <fcntl.h> // open
 
 void	*ft_realloc(void *ptr, size_t old_size, size_t size);
 char	**find_paths(char **envp);
@@ -58,10 +60,17 @@ void	check_redirects(t_cmd *cmd)
 			if ((*words)[i + 1])
 			{
 				cmd->input_redirect = (*words)[i + 1];
-				(*words)[i] = NULL; // not valid
+				(*words)[i + 1] = NULL;
+				int j = i;
+				while ((*words)[j + 2])
+				{
+					(*words)[j] = (*words)[j + 2]; // copying the pointer
+					(*words)[j + 2] = NULL; // not valid
+					j++;
+				}
 			}
 			else
-				cmd->input_redirect = NULL; // redirect to stdin
+				cmd->input_redirect = NULL;
 
 		}
 		else if (!ft_strncmp((*words)[i], ">", 2))
@@ -114,7 +123,7 @@ int main(int ac, char **av, char **envp)
 
 	line = NULL;
 	words = NULL;
-	while (i--)
+	while (true)
 	{
 		free_str(&line);
 		line = readline("$> ");
@@ -133,11 +142,40 @@ int main(int ac, char **av, char **envp)
 			t_cmd cmd;
 
 			cmd.words = &words;
-			check_redirects(&cmd);
+			cmd.input_redirect = NULL;
+			cmd.output_redirect = NULL;
 
+			// int ii = -1;
+			// while (words[++ii])
+			// 	printf("words %i: %s\n", ii, words[ii]);
+
+
+
+			// 1) shell expansion
+			// 2) redirections
+			// 3) exec
+			
 			int pid = fork();
 			if (pid == 0)
 			{
+
+				check_redirects(&cmd);
+
+				if (cmd.output_redirect)
+				{
+					printf("output redirect: %s\n", cmd.output_redirect);
+
+					int fd = open(cmd.output_redirect, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+					dup2(fd, STDOUT_FILENO);
+					close(fd);
+				}
+				if (cmd.input_redirect)
+				{
+					printf("input redirect: %s\n", cmd.input_redirect);
+					int fd = open(cmd.input_redirect, O_RDONLY);
+					dup2(fd, STDIN_FILENO);
+					close(fd);
+				}
 				run_child_command(paths, words, envp);
 				while (words[j])
 				{
