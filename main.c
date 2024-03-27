@@ -104,7 +104,8 @@ void	check_redirects(t_cmd *cmd)
 		{
 			printf("heredoc\n");
 		}
-		i++;
+		else
+			i++;
 	}
 }
 
@@ -154,13 +155,13 @@ int main(int ac, char **av, char **envp)
 			// 1) shell expansion
 			// 2) redirections
 			// 3) exec
-			
+
 			int pid = fork();
 			if (pid == 0)
 			{
 
-				check_redirects(&cmd);
 
+				check_redirects(&cmd);
 				if (cmd.output_redirect)
 				{
 					printf("output redirect: %s\n", cmd.output_redirect);
