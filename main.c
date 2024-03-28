@@ -72,6 +72,14 @@ void	check_redirects(t_cmd *cmd)
 			else
 				cmd->input_redirect = NULL;
 
+			if (cmd->input_redirect)
+			{
+				printf("input redirect: %s\n", cmd->input_redirect);
+				int fd = open(cmd->input_redirect, O_RDONLY);
+				dup2(fd, STDIN_FILENO);
+				close(fd);
+			}
+
 		}
 		else if (!ft_strncmp((*words)[i], ">", 2))
 		{
@@ -80,6 +88,7 @@ void	check_redirects(t_cmd *cmd)
 			// move all pointers down
 			// keep track of number of pointers moved down
 			// set end N poiners to null?
+			// TODO: free all redirects !! IMPT
 			free_str((*words) + i);
 			if ((*words)[i + 1])
 			{
@@ -95,6 +104,16 @@ void	check_redirects(t_cmd *cmd)
 			}
 			else
 				cmd->output_redirect = NULL;
+
+			if (cmd->output_redirect)
+			{
+				printf("output redirect: %s\n", cmd->output_redirect);
+
+				int fd = open(cmd->output_redirect, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+				dup2(fd, STDOUT_FILENO);
+				close(fd);
+			}
+
 		}
 		else if (!ft_strncmp((*words)[i], ">>", 3))
 		{
@@ -124,7 +143,8 @@ int main(int ac, char **av, char **envp)
 
 	line = NULL;
 	words = NULL;
-	while (true)
+	int runs = -1;
+	while (runs--)
 	{
 		free_str(&line);
 		line = readline("$> ");
@@ -162,21 +182,7 @@ int main(int ac, char **av, char **envp)
 
 
 				check_redirects(&cmd);
-				if (cmd.output_redirect)
-				{
-					printf("output redirect: %s\n", cmd.output_redirect);
-
-					int fd = open(cmd.output_redirect, O_WRONLY | O_TRUNC | O_CREAT, 0644);
-					dup2(fd, STDOUT_FILENO);
-					close(fd);
-				}
-				if (cmd.input_redirect)
-				{
-					printf("input redirect: %s\n", cmd.input_redirect);
-					int fd = open(cmd.input_redirect, O_RDONLY);
-					dup2(fd, STDIN_FILENO);
-					close(fd);
-				}
+				
 				run_child_command(paths, words, envp);
 				while (words[j])
 				{
