@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/30 14:39:48 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 14:40:42 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 15:04:09 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -68,20 +68,20 @@ int	nbr_of_pipes(t_params *params)
 //	if (!params->head_env)
 //		return (nbr);
 
-int	check_operator_token(char **token_arr, int i, t_params *params, int *count)
+int	check_operator_token(char **token_arr, int *i, t_params *params, int *count)
 {
-	if (token_arr[i][0] == 39 && (token_arr[i][1] == '<'
-		|| token_arr[i][1] == '>'))
+	if (token_arr[(*i)][0] == 39 && (token_arr[(*i)][1] == '<'
+		|| token_arr[(*i)][1] == '>'))
 	{
-		if (!check_next_token_file(token_arr, ++i))
+		if (!check_next_token_file(token_arr, ++(*i)))
 		{
 			write(STDERR_FILENO, "syntax error near redir token\n", 30);
 			handle_exit_failure(NULL, params);
 			return (-1);
 		}
 	}
-	else if (token_arr[i][0] == 39
-		&& token_arr[i][1] == '|')
+	else if (token_arr[(*i)][0] == 39
+		&& token_arr[(*i)][1] == '|')
 		return (1);
 	else
 		(*count)++;
@@ -104,7 +104,7 @@ int	count_words_nbr_in_cmd(char **token_arr, t_params *params)
 	{
 		if (my_strlen(token_arr[i]) >= 2)
 		{
-			rv = check_operator_token(token_arr, i, params, &count);
+			rv = check_operator_token(token_arr, &i, params, &count);
 			if (rv == -1)
 				return (-1);
 			else if (rv == 1)

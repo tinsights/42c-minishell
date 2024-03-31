@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/21 11:29:29 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 12:55:19 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 19:58:46 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -32,8 +32,9 @@ void	free_array(char **arr)
 	int	i;
 
 	i = -1;
-	while (arr[++i])
-		free(arr[i]);
+	if (arr && *arr)
+		while (arr[++i])
+			free(arr[i]);
 	free(arr);
 	arr = NULL;
 }
@@ -60,7 +61,7 @@ void	free_cmd_arr(t_command *cmd_arr, int cmd_nbr)
 
 void	handle_exit_failure(char **token_arr, t_params *params)
 {
-	if (!token_arr && params)
+	if (!token_arr && params->token_arr)
 		token_arr = params->token_arr;
 	if (token_arr)
 		free_array(token_arr);

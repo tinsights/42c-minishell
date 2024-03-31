@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/30 13:21:46 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 15:33:19 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 19:50:46 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,30 +20,38 @@ void	settle_child_process_stdin2(t_params *params, int i)
 				STDIN_FILENO), "dup2");
 		wrapper(close(*(params->cmd_arr[i].stdin_fds)), "close");
 		if (params->cmd_arr[i].here_doc)
+		{
 			wrapper(unlink(params->cmd_arr[i].here_doc), "unlink");
+			free(params->cmd_arr[i].here_doc);
+			params->cmd_arr[i].here_doc = NULL;
+		}
 	}
 }
 
-void	settle_child_process_stdin(t_params *params, int i, int (*old_fds)[2])
+void	settle_child_process_stdin(t_params *params, int i, int *old_fds)
 {
 	if (i == 0)
 		settle_child_process_stdin2(params, i);
 	else
 	{
-		wrapper(close((*old_fds)[1]), "close");
+		wrapper(close(old_fds[1]), "close");
 		if (*(params->cmd_arr[i].stdin_fds) != -2)
 		{
-			wrapper(close((*old_fds)[0]), "close");
+			wrapper(close(old_fds[0]), "close");
 			wrapper(dup2(*(params->cmd_arr[i].stdin_fds),
 					STDIN_FILENO), "dup2");
 			wrapper(close(*(params->cmd_arr[i].stdin_fds)), "close");
 			if (params->cmd_arr[i].here_doc)
+			{
 				wrapper(unlink(params->cmd_arr[i].here_doc), "unlink");
+				free(params->cmd_arr[i].here_doc);
+				params->cmd_arr[i].here_doc = NULL;
+			}
 		}
 		else
 		{
-			wrapper(dup2((*old_fds)[0], STDIN_FILENO), "dup2");
-			wrapper(close((*old_fds)[0]), "close");
+			wrapper(dup2(old_fds[0], STDIN_FILENO), "dup2");
+			wrapper(close(old_fds[0]), "close");
 		}
 	}
 }
@@ -77,16 +85,28 @@ void	settle_child_process_stdout(t_params *params, int i, int *new_fds)
 	}
 }
 
-void	child_process(t_params *params, int i, int *new_fds, int (*old_fds)[2])
+void	child_process(t_params *params, int i, int *new_fds, int *old_fds)
 {
 	settle_child_process_stdin(params, i, old_fds);
 	settle_child_process_stdout(params, i, new_fds);
 	if (check_if_cmd_is_builtin(params->cmd_arr[i].cmd_args[0]))
-		execute_builtin(params, i, 1);
+		execute_builtin(params, i, 1, old_fds);
 	else if (!params->cmd_arr[i].cmd_path)
+	{
 		wrapper(execve(params->cmd_arr[i].cmd_args[0],
 				params->cmd_arr[i].cmd_args, NULL), "execve");
+		free(old_fds);
+		handle_exit_failure(NULL, params);
+		free_symbol_table(params->head_env);
+		exit(EXIT_FAILURE);
+	}
 	else
+	{
 		wrapper(execve(params->cmd_arr[i].cmd_path,
 				params->cmd_arr[i].cmd_args, NULL), "execve");
+		free(old_fds);
+		handle_exit_failure(NULL, params);
+		free_symbol_table(params->head_env);
+		exit(EXIT_FAILURE);
+	}
 }

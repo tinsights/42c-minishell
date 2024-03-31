@@ -6,23 +6,23 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/27 10:41:27 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 19:44:41 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 18:22:50 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "shell.h"
 
-int	free_cd_strings(char *oldpwd, char *pwd, char *new_path, int flag)
+int	free_cd_strings(char *oldpwd, char *pwd, char **dir_arr, int flag)
 {
 	free(oldpwd);
 	if (pwd)
 		free(pwd);
-	if (new_path)
-		free(new_path);
+	if (dir_arr)
+		free_array(dir_arr);
 	return (flag);
 }
 
-int	cd_wrapper(t_env **head_env, char *new_path, char *path)
+int	cd_wrapper(t_env **head_env, char *new_path, char *path, char **dir_arr)
 {
 	char	*oldpwd;
 	char	*pwd;
@@ -47,30 +47,34 @@ int	cd_wrapper(t_env **head_env, char *new_path, char *path)
 		update_existing_entry(oldpwd, head_env);
 		update_existing_entry(pwd, head_env);
 	}
-	return (free_cd_strings(oldpwd, pwd, new_path, flag));
+	return (free_cd_strings(oldpwd, pwd, dir_arr, flag));
 }
 
 int	different_cd_criteria(t_env **head_env, char **cmd_args, char *cdpath,
 		char **dir_arr)
 {
 	char	*new_path;
+	int		rv;
 
 	new_path = NULL;
+	rv = 0;
 	if (cmd_args[1][0] == '/')
 	{
 		if (!dir_arr)
 			free(cdpath);
-		return (cd_wrapper(head_env, NULL, cmd_args[1]));
+		return (cd_wrapper(head_env, NULL, cmd_args[1], dir_arr));
 	}
 	else if (!dir_arr)
 	{
 		new_path = strjoin_and_free_str("/", cmd_args[1], 0);
 		new_path = strjoin_and_free_str(cdpath, new_path, 2);
 		free(cdpath);
-		return (cd_wrapper(head_env, new_path, cmd_args[1]));
+		rv = cd_wrapper(head_env, new_path, cmd_args[1], NULL);
+		free(new_path);
 	}
 	else
 		return (search_dir_arr(head_env, dir_arr, cmd_args[1]));
+	return (rv);
 }
 
 int	cd_builtin(t_env **head_env, char **cmd_args)

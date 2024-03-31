@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/30 13:27:15 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 13:29:09 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 16:48:31 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -38,7 +38,6 @@ int	check_and_assign_cmd_path3(t_params *params, char *cmd)
 	{
 		free(cwd);
 		ft_dprintf(STDERR_FILENO, "%s: %s\n", cmd, strerror(errno));
-		free_symbol_table(params->head_env);
 		handle_exit_failure(NULL, params);
 		return (0);
 	}

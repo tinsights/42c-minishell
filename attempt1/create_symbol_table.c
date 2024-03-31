@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/21 10:14:56 by achak             #+#    #+#             */
-/*   Updated: 2024/03/29 14:31:47 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 19:03:15 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,64 +37,18 @@ void	remove_table_entry(t_env *head, char *key)
 }
 */
 
-void	remove_table_entry(t_env **head, char *key)
+char	*copy_value_from_var(char *value, char *var, int i)
 {
-	t_env	*remove_node;
-	t_env	*prev_node;
-	t_env	*next_node;
-	int		flag;
+	int	j;
 
-	remove_node = *head;
-	prev_node = NULL;
-	next_node = NULL;
-	flag = 0;
-	while (remove_node)
-	{
-		if (!my_strncmp(remove_node->key, key,
-				my_strlen(remove_node->key)))
-			break ;
-		prev_node = remove_node;
-		remove_node = remove_node->next;
-		flag = 1;
-	}
-	if (!remove_node)
-		return ;
-	if (!flag)
-	{
-		*head = remove_node->next;
-		free(remove_node->key);
-		free(remove_node->value);
-		free(remove_node);
-	}
-	else
-	{
-		next_node = remove_node->next;
-		free(remove_node->key);
-		free(remove_node->value);
-		free(remove_node);
-		prev_node->next = next_node;
-	}
-}
-
-char	*get_key_from_var(char *var)
-{
-	char	*key;
-	int		i;
-	int		j;
-
-	i = -1;
 	j = -1;
-	while (var[++i])
-		if (var[i] == '=')
-			break ;
-	key = (char *)malloc(sizeof(char) * (i + 1));
-	if (key)
+	if (value)
 	{
-		key[i] = '\0';
-		while (++j < i)
-			key[j] = var[j];
+		value[i] = '\0';
+		while (var[++j])
+			value[j] = var[j];
 	}
-	return (key);
+	return (value);
 }
 
 char	*get_value_from_var(char *var)
@@ -120,12 +74,7 @@ char	*get_value_from_var(char *var)
 	if (!i && !flag)
 		return (NULL);
 	value = (char *)malloc(sizeof(char) * (i + 1));
-	if (!value)
-		return (NULL);
-	value[i] = '\0';
-	while (var[++j])
-		value[j] = var[j];
-	return (value);
+	return (copy_value_from_var(value, var, i));
 }
 
 void	create_new_entry(char *var, t_env **head)
@@ -151,7 +100,6 @@ void	create_new_entry(char *var, t_env **head)
 	value = get_value_from_var(var);
 	new_node->key = key;
 	new_node->value = value;
-	new_node->diff = my_strlen(value) - (my_strlen(key) + 1);
 }
 
 t_env	*create_symbol_table(int ac, char **av, char **env)

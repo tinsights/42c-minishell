@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/30 13:33:43 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 13:35:24 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 17:36:31 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -76,7 +76,7 @@ void	restore_stdin_and_stdout(int dup_stdin, int dup_stdout)
 	}
 }
 
-int	execute_builtin(t_params *params, int i, int flag)
+int	execute_builtin(t_params *params, int i, int flag, int *old_fds)
 {
 	int	exit_status;
 	int	dup_stdin;
@@ -88,10 +88,11 @@ int	execute_builtin(t_params *params, int i, int flag)
 	if (!flag)
 		preserve_stdin_and_stdout(params, i, &dup_stdin, &dup_stdout);
 	choose_which_builtin_to_exec(params, i, &exit_status);
+	handle_exit_failure(NULL, params);
 	if (flag)
 	{
 		free_symbol_table(params->head_env);
-		handle_exit_failure(NULL, params);
+		free(old_fds);
 		exit(exit_status);
 	}
 	else

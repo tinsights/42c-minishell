@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/20 19:25:15 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 19:59:55 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 20:00:18 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -43,7 +43,6 @@ typedef struct s_env
 {
 	char			*key;
 	char			*value;
-	int				diff;
 	struct s_env	*next;
 }	t_env;
 /*
@@ -91,10 +90,9 @@ typedef struct s_params
 void	main_shell_loop(t_params *params, char *line_read);
 void	check_read_line_eof(char *line_read, int flag, t_params *params);
 
-void	settle_child_process_stdin2(t_params *params, int i);
-void	settle_child_process_stdin(t_params *params, int i, int (*old_fds)[2]);
-void	settle_child_process_stdout(t_params *params, int i, int *new_fds);
-void	child_process(t_params *params, int i, int *new_fds, int (*old_fds)[2]);
+void	init_params(t_params *params, t_env **head_env);
+void	signal_handler(int sig);
+void	set_up_signals(void);
 
 int		check_for_char_in_str(char *str, char c);
 int		check_and_assign_cmd_path3(t_params *params, char *cmd);
@@ -103,17 +101,24 @@ int		check_and_assign_cmd_path2(t_params *params, char *cmd, int i,
 int		check_and_assign_cmd_path(t_params *params, char *cmd, int i);
 int		locate_command_names(t_params *params);
 
+void	settle_child_process_stdin2(t_params *params, int i);
+void	settle_child_process_stdin(t_params *params, int i, int *old_fds);
+void	settle_child_process_stdout(t_params *params, int i, int *new_fds);
+void	child_process(t_params *params, int i, int *new_fds, int *old_fds);
+
+void	get_status_of_child_process(t_params *params);
+void	parent_process(t_params *params, int i, int *new_fds, int *old_fds);
+
 void	wrapper(int func_rv, const char *func_name);
 void	preserve_stdin_and_stdout(t_params *params, int i, int *dup_stdin,
 			int *dup_stdout);
 void	restore_stdin_and_stdout(int dup_stdin, int dup_stdout);
 void	choose_which_builtin_to_exec(t_params *params, int i, int *exit_status);
-int		execute_builtin(t_params *params, int i, int flag);
+int		execute_builtin(t_params *params, int i, int flag, int *old_fds);
 
 int		check_if_cmd_is_builtin(char *cmd);
 int		check_if_fork_needed(t_params *params);
-void	parent_process(t_params *params, int i, int *new_fds,
-			int (*old_fds)[2]);
+void	fork_and_exec(t_params *params, int *new_fds, int *old_fds);
 void	preparing_fork_and_exec(t_params *params);
 
 int		check_next_token_pipe(char **token_arr, int i);
@@ -130,10 +135,12 @@ int		open_files_for_redirect(char **token_arr, int i, t_params *params);
 int		check_syntax_around_pipe(t_params *params, int i, int *nbr);
 int		check_syntax_around_redir(t_params *params, int i);
 int		nbr_of_pipes(t_params *params);
-int		check_operator_token(char **token_arr, int i, t_params *params,
+int		check_operator_token(char **token_arr, int *i, t_params *params,
 			int *count);
 int		count_words_nbr_in_cmd(char **token_arr, t_params *params);
 
+void	heredoc_til_delimiter(t_command *cmd_struct, int fd1, char *token_arr,
+			char *here_doc);
 void	ft_heredoc(t_params *params, int i, char *token_arr);
 
 int		check_token_valid(char **token_arr, int *flag);
@@ -143,13 +150,14 @@ int		alloc_cmd_struct_node(int i, char ***token_arr, t_params *params);
 int		alloc_cmd_struct_array(t_params *params);
 
 char	*find_env_var_value(t_env *head_env, char *var);
-int		check_valid_dir(t_env **head_env, char *dir_arr, char *new_path,
+int		check_valid_dir(t_env **head_env, char *dir_arr, char **new_path,
 			char *path);
 int		check_present_dir(t_env **head_env, char *path);
 int		search_dir_arr(t_env **head_env, char **dir_arr, char *path);
 
-int		free_cd_strings(char *oldpwd, char *pwd, char *new_path, int flag);
-int		cd_wrapper(t_env **head_env, char *new_path, char *path);
+int		free_cd_strings(char *oldpwd, char *pwd, char **dir_arr, int flag);
+int		cd_wrapper(t_env **head_env, char *new_path, char *path,
+			char **dir_arr);
 int		different_cd_criteria(t_env **head_env, char **cmd_args, char *cd_path,
 			char **dir_arr);
 int		cd_builtin(t_env **head_env, char **cmd_args);
@@ -168,13 +176,14 @@ int		export_builtin(t_env **head_env, char **cmd_args);
 
 void	copy_meta_char(char **temp, char *token_arr, int *i);
 void	copy_quote_len(char **temp, int *i, char *token_arr, t_env *head_env);
-int		move_ptr_past_var(char **temp, t_env *head_env);
+int		move_ptr_past_var(char **temp, t_env **head_env);
 
 void	copy_var_len(char **temp, char *token_arr, int *i, t_env *head_env);
 void	copy_regular_len(char **temp, char *token_arr, int *i);
 void	copy_token_from_line(char **temp, char *token_arr, t_env *head_env);
 
-void	count_var_len(char **temp, int *token_len, t_env *head_env, int i);
+void	count_var_len2(char **temp, int *token_len, t_env *head_env, int j);
+void	count_var_len(char **temp, int *token_len, t_env *head_env);
 void	count_regular_len(char **temp, int *token_len);
 
 void	count_meta_char(char **temp_line, int *token_len);
@@ -193,8 +202,12 @@ void	iterate_thru_meta_char(char **temp, int *count, int *flag);
 void	iterate_thru_word(char **temp, int *count, int *flag);
 void	reset_flag_for_new_word(char **line_read, int *flag);
 
+void	remove_head_ptr_or_not(t_env **head, t_env *remove_node,
+			t_env *prev_node, t_env *next_node);
 void	remove_table_entry(t_env **head, char *key);
 char	*get_key_from_var(char *var);
+
+char	*copy_value_from_var(char *value, char *var, int i);
 char	*get_value_from_var(char *var);
 void	create_new_entry(char *var, t_env **head);
 t_env	*create_symbol_table(int ac, char **av, char **env);

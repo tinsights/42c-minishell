@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/26 12:04:37 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 19:49:10 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 16:48:55 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,7 +20,7 @@ void	copy_var_len(char **temp, char *token_arr, int *i, t_env *head_env)
 
 	k = 0;
 	(*temp)++;
-	j = move_ptr_past_var(temp, head_env);
+	j = move_ptr_past_var(temp, &head_env);
 	if (j == -1)
 		return ;
 	if ((*temp)[0] && j != 0)

@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/24 13:36:16 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 12:47:38 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 19:13:39 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,10 +19,8 @@ void	count_meta_char(char **temp_line, int *token_len)
 		(*token_len)++;
 	else if (*temp_line + 1)
 	{
-		// questionable v
 		if (*(*temp_line + 1) != '<' && *(*temp_line + 1) != '>')
 			(*token_len)++;
-		// questionable ^
 		else if ((**temp_line == '>' && *(*temp_line + 1) == '>')
 			|| (**temp_line == '<' && *(*temp_line + 1) == '<'))
 		{
@@ -55,7 +53,7 @@ void	count_quote_len(char **temp_line, char quote, int *token_len,
 			flag = 2;
 		if (**temp_line == '$' && flag == 2)
 		{
-			count_var_len(temp_line, token_len, head_env, 1);
+			count_var_len(temp_line, token_len, head_env);
 			continue ;
 		}
 		(*temp_line)++;
@@ -87,7 +85,7 @@ int	count_token_len(char *temp, t_env *head_env)
 					*temp, &token_len, head_env);
 			else if (*temp == '$')
 				count_var_len(&temp, &token_len,
-					head_env, 0);
+					head_env);
 			else if (!is_whitespace(*temp))
 				count_regular_len(&temp, &token_len);
 		}

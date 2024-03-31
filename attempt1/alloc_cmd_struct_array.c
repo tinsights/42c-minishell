@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/26 14:19:24 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 19:48:58 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 15:04:23 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -107,7 +107,7 @@ int	alloc_cmd_struct_array(t_params *params)
 	cmd_arr = (t_command *)malloc(sizeof(t_command) * (params->cmd_nbr + 1));
 	if (cmd_arr)
 	{
-		ft_memset(cmd_arr, 0, (sizeof(t_command) * params->cmd_nbr));
+		ft_memset(cmd_arr, 0, (sizeof(t_command) * (params->cmd_nbr)));
 		while (++i < params->cmd_nbr)
 		{
 			cmd_arr[i].here_doc = NULL;

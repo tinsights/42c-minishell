@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/26 16:37:34 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 18:46:20 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 17:46:03 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -70,7 +70,9 @@ int	check_valid_var_name(char *var)
 	}
 	while (var[++j])
 	{
-		if (!is_alphabet(var[j]) && !is_numeric(var[j]) && var[j] != '_')
+		if (var[j] == '=')
+			break ;
+		else if (!is_alphabet(var[j]) && !is_numeric(var[j]) && var[j] != '_')
 		{
 			printf("export: `%s': not a valid identifier\n", var);
 			return (0);

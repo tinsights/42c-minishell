@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/30 19:28:30 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 19:46:44 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 18:24:02 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,19 +27,20 @@ char	*find_env_var_value(t_env *head_env, char *var)
 	return (head_env->value);
 }
 
-int	check_valid_dir(t_env **head_env, char *dir_arr, char *new_path, char *path)
+int	check_valid_dir(t_env **head_env, char *dir_arr, char **new_path,
+		char *path)
 {
 	struct stat	statbuf;
 	int			flag;
 
 	flag = -1;
-	new_path = strjoin_and_free_str(dir_arr, path, 0);
-	if (stat(new_path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode))
+	*new_path = strjoin_and_free_str(dir_arr, path, 0);
+	if (stat(*new_path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode))
 	{
-		flag = cd_wrapper(head_env, new_path, path);
+		flag = cd_wrapper(head_env, *new_path, path, NULL);
 		if (!flag)
-			printf("%s\n", new_path);
-		free(new_path);
+			printf("%s\n", *new_path);
+		free(*new_path);
 		return (flag);
 	}
 	return (flag);
@@ -52,7 +53,7 @@ int	check_present_dir(t_env **head_env, char *path)
 
 	str = strjoin_and_free_str(getcwd(NULL, 200), "/", 1);
 	str = strjoin_and_free_str(str, path, 1);
-	rv = cd_wrapper(head_env, str, path);
+	rv = cd_wrapper(head_env, str, path, NULL);
 	free(str);
 	return (rv);
 }
@@ -74,7 +75,7 @@ int	search_dir_arr(t_env **head_env, char **dir_arr, char *path)
 			continue ;
 		if (dir_arr[i][--j] != '/')
 			dir_arr[i] = strjoin_and_free_str(dir_arr[i], "/", 1);
-		flag = check_valid_dir(head_env, dir_arr[i], new_path, path);
+		flag = check_valid_dir(head_env, dir_arr[i], &new_path, path);
 		if (flag != -1)
 			break ;
 		free(new_path);

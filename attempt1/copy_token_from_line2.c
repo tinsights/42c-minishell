@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/30 19:48:11 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 19:48:18 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 16:48:40 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -56,7 +56,7 @@ void	copy_quote_len(char **temp, int *i, char *token_arr, t_env *head_env)
 		(*temp)++;
 }
 
-int	move_ptr_past_var(char **temp, t_env *head_env)
+int	move_ptr_past_var(char **temp, t_env **head_env)
 {
 	int	j;
 
@@ -65,13 +65,13 @@ int	move_ptr_past_var(char **temp, t_env *head_env)
 		&& (*temp)[j] != '<' && (*temp)[j] != '>' && (*temp)[j] != 39
 		&& (*temp)[j] != '"' && (*temp)[j] != '$')
 		j++;
-	while (head_env)
+	while (*head_env)
 	{
-		if (!my_strncmp(*temp, head_env->key, j))
+		if (!my_strncmp(*temp, (*head_env)->key, j))
 			break ;
-		head_env = head_env->next;
+		*head_env = (*head_env)->next;
 	}
-	if (!head_env)
+	if (!*head_env)
 	{
 		(*temp) += j;
 		return (-1);

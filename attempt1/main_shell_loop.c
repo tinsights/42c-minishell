@@ -6,7 +6,7 @@
 /*   By: achak <marvin@42.fr>                       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/29 14:00:05 by achak             #+#    #+#             */
-/*   Updated: 2024/03/30 12:48:30 by achak            ###   ########.fr       */
+/*   Updated: 2024/03/31 18:47:54 by achak            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,7 +24,7 @@ void	main_shell_loop(t_params *params, char *line_read)
 		return ;
 	params->cmd_nbr = pipe_nbr + 1;
 	if (alloc_cmd_struct_array(params) == -1)
-		return ;
+		return (handle_exit_failure(NULL, params));
 	if (locate_command_names(params) == -1)
 		return ;
 	preparing_fork_and_exec(params);
@@ -40,7 +40,6 @@ void	check_line_read_eof(char *line_read, int flag, t_params *params)
 	else if (flag)
 	{
 		free_symbol_table(params->head_env);
-		handle_exit_failure(NULL, params);
 		exit(EXIT_SUCCESS);
 	}
 }
@@ -55,7 +54,8 @@ int	main(int ac, char **av, char **env)
 
 	flag = 0;
 	head_env = create_symbol_table(ac, av, env);
-	params.head_env = &head_env;
+	init_params(&params, &head_env);
+	set_up_signals();
 	while (1)
 	{
 		check_line_read_eof(line_read, flag, &params);
