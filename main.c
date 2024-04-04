@@ -30,6 +30,8 @@ char	*check_valid_cmd(char **paths, char *cmd);
 void	run_child_command(char **paths, char **cmd, char **envp);
 void	parse_quotes(char *line, char ***words);
 int		count_cmds(char *line);
+int		count_strings(char *line);
+
 
 
 typedef struct s_cmd
@@ -118,6 +120,14 @@ int main(int ac, char **av, char **envp)
 		if (params.line && *params.line)
 		{
 			add_history(params.line);
+
+			// syntax_check(params.line);
+			// parse_quotes(params.line, &params.words);
+
+			// i = 0;
+			// while (params.words[i])
+			// 	printf("%s\n", params.words[i++]);
+
 			/* TODO: valid syntax check
 			** > < << and >> must be followed by at least one word
 			** | must be preceded by and followed by at least one word
@@ -138,16 +148,69 @@ int main(int ac, char **av, char **envp)
 
 
 
+
+bool ms_isspace(char c)
+{
+	return (c == ' ' || c == '\t');
+}
+
+int count_strings(char *line)
+{
+	int count;
+
+	if (!line)
+		return (-1);
+	count = 0;
+	while (*line)
+	{
+		// skip any leading whitespace
+		while (*line && ms_isspace(*line))
+			line++;
+		if (*line)
+			count++;
+		while (*line && !ms_isspace(*line))
+			line++;
+	}
+	return (count);
+}
+
+int syntax_check(char *line)
+{
+	int str_count;
+	int	i;
+
+	if (!line)
+		return (-1);
+	i = 0;
+	str_count = count_strings(line);
+	while (*line)
+	{
+		// skip any leading whitespace
+		while (*line && ms_isspace(*line))
+			line++;
+		if (!ft_strncmp(line, "|", 2))
+		{
+
+		}
+		// while (*line && !ms_isspace(*line))
+		// 	line++;
+	}
+
+}
+
 int	count_cmds(char *line)
 {
-	int	count;
+	int		cmd_count;
+	char	*start;
+	char	*ptr;
+
 	if (!line)
 		return (0);
 
-	count = 1;
+	cmd_count = 1;
+	start = line;
 	while (*line)
 	{
-
 		//assuming syntax is valid
 
 		if (*line == '\'' && *(line + 1))
@@ -156,8 +219,34 @@ int	count_cmds(char *line)
 			line = ft_strchr(line + 1, '"');
 		else if (*line == '|')
 		{
-			// create simple command struct / node
-			count++;
+			ptr = line;
+			if (ptr == start || !ptr[1])
+			{
+				printf("syntax error0\n");
+				return (-1);
+			}
+			ptr++;
+			while (ms_isspace(*ptr))
+			{
+				ptr++;
+				if (!(*ptr))
+				{
+					printf("syntax error1\n");
+					return (-1);
+				}
+			}
+			ptr = line - 1;
+			while (ms_isspace(*ptr))
+			{
+				if (ptr == start)
+				{
+					printf("syntax error2\n");
+					return (-1);
+				}
+				ptr--;
+			}
+			cmd_count++;
+
 		}
 
 		// check if heredoc
@@ -168,7 +257,7 @@ int	count_cmds(char *line)
 		else
 			break;
 	}
-	return count;
+	return cmd_count;
 }
 
 
