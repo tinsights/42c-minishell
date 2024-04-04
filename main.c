@@ -38,7 +38,7 @@ typedef struct s_redirect
 
 typedef struct s_cmd
 {
-	char	***words;
+	char	**words;
 	char	*input_redirect;
 	char	*output_redirect;
 }	t_cmd;
@@ -47,25 +47,25 @@ void	check_redirects(t_cmd *cmd)
 {
 	int i = 0;
 
-	char ***words = cmd->words;
+	char **words = cmd->words;
 
-	if (!*words)
+	if (!words)
 		return ;
-	while ((*words)[i])
+	while ((words)[i])
 	{
-		if (!ft_strncmp((*words)[i], "<", 2))
+		if (!ft_strncmp((words)[i], "<", 2))
 		{
 			printf("input redirection detected\n");
-			free_str((*words) + i);
-			if ((*words)[i + 1])
+			free_str((words) + i);
+			if ((words)[i + 1])
 			{
-				cmd->input_redirect = (*words)[i + 1];
-				(*words)[i + 1] = NULL;
+				cmd->input_redirect = (words)[i + 1];
+				(words)[i + 1] = NULL;
 				int j = i;
-				while ((*words)[j + 2])
+				while ((words)[j + 2])
 				{
-					(*words)[j] = (*words)[j + 2]; // copying the pointer
-					(*words)[j + 2] = NULL; // not valid
+					(words)[j] = (words)[j + 2]; // copying the pointer
+					(words)[j + 2] = NULL; // not valid
 					j++;
 				}
 			}
@@ -81,7 +81,7 @@ void	check_redirects(t_cmd *cmd)
 			}
 
 		}
-		else if (!ft_strncmp((*words)[i], ">", 2))
+		else if (!ft_strncmp((words)[i], ">", 2))
 		{
 			printf("output redirection detected\n");
 
@@ -89,16 +89,16 @@ void	check_redirects(t_cmd *cmd)
 			// keep track of number of pointers moved down
 			// set end N poiners to null?
 			// TODO: free all redirects !! IMPT
-			free_str((*words) + i);
-			if ((*words)[i + 1])
+			free_str((words) + i);
+			if ((words)[i + 1])
 			{
-				cmd->output_redirect = (*words)[i + 1];
-				(*words)[i + 1] = NULL;
+				cmd->output_redirect = (words)[i + 1];
+				(words)[i + 1] = NULL;
 				int j = i;
-				while ((*words)[j + 2])
+				while ((words)[j + 2])
 				{
-					(*words)[j] = (*words)[j + 2]; // copying the pointer
-					(*words)[j + 2] = NULL; // not valid
+					(words)[j] = (words)[j + 2]; // copying the pointer
+					(words)[j + 2] = NULL; // not valid
 					j++;
 				}
 			}
@@ -115,11 +115,11 @@ void	check_redirects(t_cmd *cmd)
 			}
 
 		}
-		else if (!ft_strncmp((*words)[i], ">>", 3))
+		else if (!ft_strncmp((words)[i], ">>", 3))
 		{
 			printf("append output\n");
 		}
-		else if (!ft_strncmp((*words)[i], "<<", 3))
+		else if (!ft_strncmp((words)[i], "<<", 3))
 		{
 			printf("heredoc\n");
 		}
@@ -162,15 +162,9 @@ int main(int ac, char **av, char **envp)
 		{
 			t_cmd cmd;
 
-			cmd.words = &words;
+			cmd.words = words;
 			cmd.input_redirect = NULL;
 			cmd.output_redirect = NULL;
-
-			// int ii = -1;
-			// while (words[++ii])
-			// 	printf("words %i: %s\n", ii, words[ii]);
-
-
 
 			// 1) shell expansion
 			// 2) redirections
@@ -179,7 +173,6 @@ int main(int ac, char **av, char **envp)
 			int pid = fork();
 			if (pid == 0)
 			{
-
 
 				check_redirects(&cmd);
 				
