@@ -30,11 +30,6 @@ char	*check_valid_cmd(char **paths, char *cmd);
 void	run_child_command(char **paths, char **cmd, char **envp);
 void	parse_quotes(char *line, char ***words);
 
-typedef struct s_redirect
-{
-	char	*file;
-	int		fd;
-} t_redirect;
 
 typedef struct s_cmd
 {
@@ -43,170 +38,94 @@ typedef struct s_cmd
 	char	*output_redirect;
 }	t_cmd;
 
-void	check_redirects(t_cmd *cmd)
+typedef struct s_env_var
 {
-	int i = 0;
+	char				*key;
+	char				*value;
+} t_env_var;
 
-	char **words = cmd->words;
 
-	if (!words)
-		return ;
-	while ((words)[i])
-	{
-		if (!ft_strncmp((words)[i], "<", 2))
-		{
-			printf("input redirection detected\n");
-			free_str((words) + i);
-			if ((words)[i + 1])
-			{
-				cmd->input_redirect = (words)[i + 1];
-				(words)[i + 1] = NULL;
-				int j = i;
-				while ((words)[j + 2])
-				{
-					(words)[j] = (words)[j + 2]; // copying the pointer
-					(words)[j + 2] = NULL; // not valid
-					j++;
-				}
-			}
-			else
-				cmd->input_redirect = NULL;
+typedef struct s_params
+{
+	char		*line;
+	char		**paths;
+	t_list		*var_list;
+	t_list		*mem_lst;
+}	t_params;
 
-			if (cmd->input_redirect)
-			{
-				printf("input redirect: %s\n", cmd->input_redirect);
-				int fd = open(cmd->input_redirect, O_RDONLY);
-				dup2(fd, STDIN_FILENO);
-				close(fd);
-			}
+void *ms_calloc(size_t nmemb, size_t size, t_list **mem_lst)
+{
+	void *result = ft_calloc(nmemb, size);
+	// error management?
+	t_list *node = ft_calloc(1, sizeof(t_list));
+	node->content = result;
+	ft_lstadd_back(mem_lst, node);
+	return (result);
+}
 
-		}
-		else if (!ft_strncmp((words)[i], ">", 2))
-		{
-			printf("output redirection detected\n");
+void safe_free(void **ptr)
+{
+	if (*ptr)
+		free (*ptr);
+	*ptr = NULL;
+}
 
-			// move all pointers down
-			// keep track of number of pointers moved down
-			// set end N poiners to null?
-			// TODO: free all redirects !! IMPT
-			free_str((words) + i);
-			if ((words)[i + 1])
-			{
-				cmd->output_redirect = (words)[i + 1];
-				(words)[i + 1] = NULL;
-				int j = i;
-				while ((words)[j + 2])
-				{
-					(words)[j] = (words)[j + 2]; // copying the pointer
-					(words)[j + 2] = NULL; // not valid
-					j++;
-				}
-			}
-			else
-				cmd->output_redirect = NULL;
+void free_env(void *ptr)
+{
+	t_env_var *var = (t_env_var *) ptr;
 
-			if (cmd->output_redirect)
-			{
-				printf("output redirect: %s\n", cmd->output_redirect);
-
-				int fd = open(cmd->output_redirect, O_WRONLY | O_TRUNC | O_CREAT, 0644);
-				dup2(fd, STDOUT_FILENO);
-				close(fd);
-			}
-
-		}
-		else if (!ft_strncmp((words)[i], ">>", 3))
-		{
-			printf("append output\n");
-		}
-		else if (!ft_strncmp((words)[i], "<<", 3))
-		{
-			printf("heredoc\n");
-		}
-		else
-			i++;
-	}
+	safe_free((void **) &(var->key));
+	safe_free((void **) &(var->value));
+	safe_free((void **) &(var));
 }
 
 int main(int ac, char **av, char **envp)
 {
-	char	*line;
-	char	**paths;
-	char	**words;
-	
-	int i = 0;
-
-	paths = find_paths(envp);
-
-	while (paths[i])
-		printf("%s\n", paths[i++]);
-
-	line = NULL;
-	words = NULL;
-	int runs = -1;
-	while (runs--)
-	{
-		free_str(&line);
-		line = readline("$> ");
-		if (line && *line)
-		{
-			add_history(line);
-			words = (char **) ft_calloc(1, sizeof(char *));
-			parse_quotes(line, &words);
-		}
+	t_params	params;
+	int 		i;
+	ft_memset(&params, 0, sizeof(t_params));
 
 
-		int j = 0;
-
-		if (words && *words)
-		{
-			t_cmd cmd;
-
-			cmd.words = words;
-			cmd.input_redirect = NULL;
-			cmd.output_redirect = NULL;
-
-			// 1) shell expansion
-			// 2) redirections
-			// 3) exec
-
-			int pid = fork();
-			if (pid == 0)
-			{
-
-				check_redirects(&cmd);
-				
-				run_child_command(paths, words, envp);
-				while (words[j])
-				{
-					free_str(&words[j]);
-					j++;
-				}
-				free(words);
-				break;
-			}
-			else
-				waitpid(pid, NULL, 0);
-		}
-
-		j = 0;
-		while (words && words[j])
-		{
-			free_str(&words[j]);
-			j++;
-		}
-		free(words);
-	}
-	free_str(&line);
+	// process envp
+	params.paths = find_paths(envp);
 
 	i = 0;
-	while (paths[i])
+	while (envp && envp[i])
 	{
-		free_str(&paths[i]);
+		char *eqsign = ft_strchr(envp[i], '=');
+		unsigned int start = eqsign - envp[i];
+		if (eqsign)
+		{
+			t_env_var	*node = ft_calloc(1, sizeof(t_env_var));
+			t_list		*list = ft_calloc(1, sizeof(t_list));
+
+			node->key = ft_substr(envp[i], 0, start);
+			node->value = ft_substr(envp[i], start + 1, ft_strlen(envp[i]));
+
+			list->content = node;
+			ft_lstadd_back(&params.var_list, list);
+
+		}
 		i++;
 	}
-	free(paths);
+
+	ft_lstclear(&params.var_list, free_env);
+
+	i = 0;
+	while (params.paths[i])
+		safe_free((void **) (params.paths + i++));
+	safe_free((void **) &(params.paths));
+	// params.line = NULL;
+	// while (true)
+	// {
+	// 	free_str(&(params.line));
+	// 	params.line = readline("$> ");
+	// 	if (params.line && *params.line)
+	// 		add_history(params.line);
+	// }
+	// free_str(&(params.line));
 }
+
 
 void	add_to_words(char ***words, char *str)
 {
@@ -298,10 +217,8 @@ void parse_quotes(char *line, char ***words)
 void free_str(char **str)
 {
 	if (*str)
-	{
-		free(*str);
-		*str = NULL;
-	}
+		free (*str);
+	*str = NULL;
 }
 
 char **find_paths(char **envp)
