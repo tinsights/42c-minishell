@@ -109,8 +109,17 @@ int main(int ac, char **av, char **envp)
 		i++;
 	}
 
-	ft_lstclear(&params.var_list, free_env);
+	t_list *next = params.var_list;
+	while (true)
+	{
+		if (!next)
+			break;
+		t_env_var *var = (t_env_var *) next->content;
+		printf("%s=%s\n", var->key, var->value);
+		next = next->next;
+	}
 
+	ft_lstclear(&params.var_list, free_env);
 	i = 0;
 	while (params.paths[i])
 		safe_free((void **) (params.paths + i++));
