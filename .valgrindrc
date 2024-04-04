@@ -1,2 +1,3 @@
 --leak-check=full
 --suppressions=readline.supp
+--gen-suppressions=all

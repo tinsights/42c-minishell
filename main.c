@@ -29,6 +29,7 @@ void	free_str(char **p);
 char	*check_valid_cmd(char **paths, char *cmd);
 void	run_child_command(char **paths, char **cmd, char **envp);
 void	parse_quotes(char *line, char ***words);
+int		count_cmds(char *line);
 
 
 typedef struct s_cmd
@@ -49,6 +50,7 @@ typedef struct s_params
 {
 	char		*line;
 	char		**paths;
+	char		**words;
 	t_list		*var_list;
 	t_list		*mem_lst;
 }	t_params;
@@ -109,7 +111,70 @@ int main(int ac, char **av, char **envp)
 		i++;
 	}
 
-	t_list *next = params.var_list;
+	while (true)
+	{
+		free_str(&(params.line));
+		params.line = readline("$> ");
+		if (params.line && *params.line)
+		{
+			add_history(params.line);
+			/* TODO: valid syntax check
+			** > < << and >> must be followed by at least one word
+			** | must be preceded by and followed by at least one word
+			** and cannot be a metachar (before handling quotes)
+			*/
+			printf("%i\n", count_cmds(params.line));
+
+		}
+	}
+
+	ft_lstclear(&params.var_list, free_env);
+	i = 0;
+	while (params.paths[i])
+		safe_free((void **) (params.paths + i++));
+	safe_free((void **) &(params.paths));
+	free_str(&(params.line));
+}
+
+
+
+int	count_cmds(char *line)
+{
+	int	count;
+	if (!line)
+		return (0);
+
+	count = 1;
+	while (*line)
+	{
+
+		//assuming syntax is valid
+
+		if (*line == '\'' && *(line + 1))
+			line = ft_strchr(line + 1, '\'');
+		else if (*line == '"' && *(line + 1))
+			line = ft_strchr(line + 1, '"');
+		else if (*line == '|')
+		{
+			// create simple command struct / node
+			count++;
+		}
+
+		// check if heredoc
+		// process heredoc
+
+		if (line && *line)
+			line++;
+		else
+			break;
+	}
+	return count;
+}
+
+
+void	print_env_lst(t_params *params)
+{
+	t_list *next = params->var_list;
 	while (true)
 	{
 		if (!next)
@@ -118,23 +183,7 @@ int main(int ac, char **av, char **envp)
 		printf("%s=%s\n", var->key, var->value);
 		next = next->next;
 	}
-
-	ft_lstclear(&params.var_list, free_env);
-	i = 0;
-	while (params.paths[i])
-		safe_free((void **) (params.paths + i++));
-	safe_free((void **) &(params.paths));
-	// params.line = NULL;
-	// while (true)
-	// {
-	// 	free_str(&(params.line));
-	// 	params.line = readline("$> ");
-	// 	if (params.line && *params.line)
-	// 		add_history(params.line);
-	// }
-	// free_str(&(params.line));
 }
-
 
 void	add_to_words(char ***words, char *str)
 {
