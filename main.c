@@ -198,6 +198,19 @@ int syntax_check(char *line)
 
 }
 
+bool is_redirect(char *line)
+{
+	return (!ft_strncmp(line, ">>", 2)
+		|| !ft_strncmp(line, "<<", 2)
+		|| !ft_strncmp(line, ">", 1)
+		|| !ft_strncmp(line, "<", 1));
+}
+
+bool is_meta(char *line)
+{
+	return (is_redirect(line) || !ft_strncmp(line, "|", 1));
+}
+
 int	count_cmds(char *line)
 {
 	int		cmd_count;
@@ -205,53 +218,109 @@ int	count_cmds(char *line)
 	char	*ptr;
 
 	if (!line)
-		return (0);
+		return (0); // zero? or neg?
 
+	cmd_count = 0;
+
+	while (ms_isspace(*line))
+		line++;
+	if (!line[0])
+		return (0);
 	cmd_count = 1;
 	start = line;
 	while (*line)
 	{
-		//assuming syntax is valid
-
-		if (*line == '\'' && *(line + 1))
+		if (*line == '\'')
+		{
+			if (!(line[1]))
+			{
+				printf("quote syntax error\n");
+				return (-1);
+			}
 			line = ft_strchr(line + 1, '\'');
-		else if (*line == '"' && *(line + 1))
+			if (!line)
+			{
+				printf("quote syntax error\n");
+				return (-1);
+			}
+		}
+		else if (*line == '"')
+		{
+			if (!(line[1]))
+			{
+				printf("quote syntax error\n");
+				return (-1);
+			}
 			line = ft_strchr(line + 1, '"');
+			if (!line)
+			{
+				printf("quote syntax error\n");
+				return (-1);
+			}
+		}
 		else if (*line == '|')
 		{
 			ptr = line;
 			if (ptr == start || !ptr[1])
 			{
-				printf("syntax error0\n");
+				printf("pipe syntax error0\n");
 				return (-1);
 			}
-			ptr++;
+			ptr--;
+			while (ms_isspace(*ptr))
+			{
+				if (ptr == start)
+				{
+					printf("pipe syntax error1\n");
+					return (-1);
+				}
+				ptr--;
+			}
+			if (*ptr == '|')
+			{
+				printf("pipe syntax error1.5\n");
+				return (-1);
+			}
+			ptr = line + 1;
 			while (ms_isspace(*ptr))
 			{
 				ptr++;
 				if (!(*ptr))
 				{
-					printf("syntax error1\n");
+					printf("pipe syntax error2\n");
 					return (-1);
 				}
 			}
-			ptr = line - 1;
-			while (ms_isspace(*ptr))
+			if (*ptr == '|')
 			{
-				if (ptr == start)
-				{
-					printf("syntax error2\n");
-					return (-1);
-				}
-				ptr--;
+				printf("pipe syntax error2.5\n");
+				return (-1);
 			}
 			cmd_count++;
-
 		}
-
-		// check if heredoc
-		// process heredoc
-
+		else if (is_redirect(line))
+		{
+			if (!ft_strncmp(line, "<<", 2) || !ft_strncmp(line, ">>", 2))
+				line +=2;
+			else
+				line++;
+			ptr = line;
+			while (ms_isspace(*ptr))
+			{
+				ptr++;
+				if (!(*ptr))
+				{
+					printf("redirect syntax error1\n");
+					return (-1);
+				}
+			}
+			if (!ptr[0] || is_meta(ptr))
+			{
+				printf("redirect syntax error1\n");
+				return (-1);
+			}
+			line--;
+		}
 		if (line && *line)
 			line++;
 		else
