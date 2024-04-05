@@ -23,19 +23,10 @@
 
 #include <fcntl.h> // open
 
-void	*ft_realloc(void *ptr, size_t old_size, size_t size);
-char	**find_paths(char **envp);
-void	free_str(char **p);
-char	*check_valid_cmd(char **paths, char *cmd);
-void	run_child_command(char **paths, char **cmd, char **envp);
-void	parse_quotes(char *line, char ***words);
-int		count_cmds(char *line);
-int		count_strings(char *line);
-
-
 
 typedef struct s_cmd
 {
+	char	*line;
 	char	**words;
 	char	*input_redirect;
 	char	*output_redirect;
@@ -50,12 +41,27 @@ typedef struct s_env_var
 
 typedef struct s_params
 {
+	int			num_cmds;
 	char		*line;
 	char		**paths;
-	char		**words;
+
+	t_list		*cmd_list;
 	t_list		*var_list;
 	t_list		*mem_lst;
 }	t_params;
+
+void	*ft_realloc(void *ptr, size_t old_size, size_t size);
+char	**find_paths(char **envp);
+void	free_str(char **p);
+void 	safe_free(void **ptr);
+char	*check_valid_cmd(char **paths, char *cmd);
+void	run_child_command(char **paths, char **cmd, char **envp);
+void	parse_quotes(char *line, char ***words);
+int		count_cmds(t_params *params);
+int		count_strings(char *line);
+void	create_cmds(t_params *params);
+
+
 
 void *ms_calloc(size_t nmemb, size_t size, t_list **mem_lst)
 {
@@ -83,6 +89,15 @@ void free_env(void *ptr)
 	safe_free((void **) &(var));
 }
 
+void free_cmds(void *ptr)
+{
+	t_cmd *cmd = (t_cmd *) ptr;
+
+	safe_free((void **) &(cmd->line));
+	safe_free((void **) &(cmd));
+
+}
+
 int main(int ac, char **av, char **envp)
 {
 	t_params	params;
@@ -90,9 +105,10 @@ int main(int ac, char **av, char **envp)
 	ft_memset(&params, 0, sizeof(t_params));
 
 
-	// process envp
+	/* -------------------------------------------------------------------------- */
+	/*                         Process ENVP, create PATHS                         */
+	/* -------------------------------------------------------------------------- */
 	params.paths = find_paths(envp);
-
 	i = 0;
 	while (envp && envp[i])
 	{
@@ -113,32 +129,42 @@ int main(int ac, char **av, char **envp)
 		i++;
 	}
 
-	while (true)
+
+	/* -------------------------------------------------------------------------- */
+	/*                            Read line with prompt                           */
+	/* -------------------------------------------------------------------------- */
+	static unsigned int totallen;
+	while (i--)
 	{
 		free_str(&(params.line));
 		params.line = readline("$> ");
 		if (params.line && *params.line)
 		{
 			add_history(params.line);
-
-			// syntax_check(params.line);
 			// parse_quotes(params.line, &params.words);
 
 			// i = 0;
 			// while (params.words[i])
 			// 	printf("%s\n", params.words[i++]);
 
-			/* TODO: valid syntax check
-			** > < << and >> must be followed by at least one word
-			** | must be preceded by and followed by at least one word
-			** and cannot be a metachar (before handling quotes)
+			/** DONE: valid syntax check
+			 *  > < << and >> must be followed by at least one word
+			 *  | must be preceded by and followed by at least one word or valid redir
 			*/
-			printf("%i\n", count_cmds(params.line));
+			params.num_cmds = count_cmds(&params);
+			if (params.num_cmds <= 0)
+				continue ;
+			/** TODO: Prepare linked list of simple commands
+			 * with output and input redirects
+			 * 
+			*/
+			create_cmds(&params);
 
 		}
 	}
 
 	ft_lstclear(&params.var_list, free_env);
+	ft_lstclear(&params.cmd_list, free_cmds);
 	i = 0;
 	while (params.paths[i])
 		safe_free((void **) (params.paths + i++));
@@ -154,48 +180,9 @@ bool ms_isspace(char c)
 	return (c == ' ' || c == '\t');
 }
 
-int count_strings(char *line)
+bool is_single_pipe(char *line)
 {
-	int count;
-
-	if (!line)
-		return (-1);
-	count = 0;
-	while (*line)
-	{
-		// skip any leading whitespace
-		while (*line && ms_isspace(*line))
-			line++;
-		if (*line)
-			count++;
-		while (*line && !ms_isspace(*line))
-			line++;
-	}
-	return (count);
-}
-
-int syntax_check(char *line)
-{
-	int str_count;
-	int	i;
-
-	if (!line)
-		return (-1);
-	i = 0;
-	str_count = count_strings(line);
-	while (*line)
-	{
-		// skip any leading whitespace
-		while (*line && ms_isspace(*line))
-			line++;
-		if (!ft_strncmp(line, "|", 2))
-		{
-
-		}
-		// while (*line && !ms_isspace(*line))
-		// 	line++;
-	}
-
+	return (line && line[0] == '|' && line[1] != '|');
 }
 
 bool is_redirect(char *line)
@@ -211,21 +198,85 @@ bool is_meta(char *line)
 	return (is_redirect(line) || !ft_strncmp(line, "|", 1));
 }
 
-int	count_cmds(char *line)
+
+void create_cmds(t_params *params)
+{
+	int total_len;
+	char *line;
+	char *start;
+
+	if (!params)
+		return ; // zero? or neg?
+	line = params->line;
+
+	if (!line)
+		return ; // zero? or neg?
+
+	total_len = 0;
+	start = line;
+	while (*line)
+	{
+		if (*line == '\'')
+			line = ft_strchr(line + 1, '\'');
+		else if (*line == '"')
+			line = ft_strchr(line + 1, '"');
+		else if (*line == '|')
+		{
+
+			t_cmd *cmd = ft_calloc(1, sizeof(t_cmd));
+			t_list *node = ft_calloc(1, sizeof(t_list));
+
+			int len = line - (start + total_len);
+
+			printf("len : %i\n", len);
+			cmd->line = ft_substr(params->line, total_len, len);
+			total_len += len + 1;
+
+			node->content = cmd;
+			ft_lstadd_back(&params->cmd_list, node);
+		}
+
+		line++;
+		if (!line[0])
+		{
+			t_cmd *cmd = ft_calloc(1, sizeof(t_cmd));
+			t_list *node = ft_calloc(1, sizeof(t_list));
+
+			int len = line - (start + total_len);
+
+			printf("len : %i\n", len);
+			cmd->line = ft_substr(params->line, total_len, len);
+			total_len += len + 1;
+
+			node->content = cmd;
+			ft_lstadd_back(&params->cmd_list, node);
+		}
+
+	}
+
+
+}
+
+
+int	count_cmds(t_params *params)
 {
 	int		cmd_count;
 	char	*start;
 	char	*ptr;
+	int		totallen;
+
+
+	if (!params)
+		return (0); // zero? or neg?
+	char *line = params->line;
 
 	if (!line)
 		return (0); // zero? or neg?
-
-	cmd_count = 0;
-
 	while (ms_isspace(*line))
 		line++;
 	if (!line[0])
 		return (0);
+
 	cmd_count = 1;
 	start = line;
 	while (*line)
