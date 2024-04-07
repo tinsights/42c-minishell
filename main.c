@@ -26,17 +26,18 @@
 
 typedef struct s_cmd
 {
+	int		num_words;
 	char	*line;
 	char	**words;
 	char	*input_redirect;
 	char	*output_redirect;
 }	t_cmd;
 
-typedef struct s_env_var
+typedef struct s_env
 {
 	char				*key;
 	char				*value;
-} t_env_var;
+} t_env;
 
 
 typedef struct s_params
@@ -46,7 +47,7 @@ typedef struct s_params
 	char		**paths;
 
 	t_list		*cmd_list;
-	t_list		*var_list;
+	t_list		*env_list;
 	t_list		*mem_lst;
 }	t_params;
 
@@ -60,6 +61,10 @@ void	parse_quotes(char *line, char ***words);
 int		count_cmds(t_params *params);
 int		count_strings(char *line);
 void	create_cmds(t_params *params);
+void	create_words(t_params *params);
+bool 	is_meta(char *line);
+bool 	is_space(char c);
+int		is_redirect(char *line);
 
 
 
@@ -82,7 +87,7 @@ void safe_free(void **ptr)
 
 void free_env(void *ptr)
 {
-	t_env_var *var = (t_env_var *) ptr;
+	t_env *var = (t_env *) ptr;
 
 	safe_free((void **) &(var->key));
 	safe_free((void **) &(var->value));
@@ -92,7 +97,15 @@ void free_env(void *ptr)
 void free_cmds(void *ptr)
 {
 	t_cmd *cmd = (t_cmd *) ptr;
+	char **words = cmd->words;
 
+	int i = 0;
+	while (words[i])
+	{
+		free_str(words + i);
+		i++;
+	}
+	safe_free((void **) &words);
 	safe_free((void **) &(cmd->line));
 	safe_free((void **) &(cmd));
 
@@ -116,14 +129,14 @@ int main(int ac, char **av, char **envp)
 		unsigned int start = eqsign - envp[i];
 		if (eqsign)
 		{
-			t_env_var	*node = ft_calloc(1, sizeof(t_env_var));
+			t_env	*node = ft_calloc(1, sizeof(t_env));
 			t_list		*list = ft_calloc(1, sizeof(t_list));
 
 			node->key = ft_substr(envp[i], 0, start);
 			node->value = ft_substr(envp[i], start + 1, ft_strlen(envp[i]));
 
 			list->content = node;
-			ft_lstadd_back(&params.var_list, list);
+			ft_lstadd_back(&params.env_list, list);
 
 		}
 		i++;
@@ -159,12 +172,13 @@ int main(int ac, char **av, char **envp)
 			 * 
 			*/
 			create_cmds(&params);
+			create_words(&params);
+			ft_lstclear(&params.cmd_list, free_cmds);
 
 		}
 	}
 
-	ft_lstclear(&params.var_list, free_env);
-	ft_lstclear(&params.cmd_list, free_cmds);
+	ft_lstclear(&params.env_list, free_env);
 	i = 0;
 	while (params.paths[i])
 		safe_free((void **) (params.paths + i++));
@@ -174,10 +188,157 @@ int main(int ac, char **av, char **envp)
 
 
 
-
-bool ms_isspace(char c)
+void	create_words(t_params *params)
 {
-	return (c == ' ' || c == '\t');
+	/**
+	 * TODO: Go through entire word,
+	 * skip IFS/whitespace,
+	 * if unquoted string
+	 * malloc and add to **words arr
+	 * if single quoted string
+	 * remove quotes and add to **words
+	 * if redirect operator,
+	 * find filename and run redir prep
+	*/
+
+	t_list *env_lst = params->env_list;
+	t_list *cmd_lst = params->cmd_list;
+
+	while (cmd_lst)
+	{
+		t_cmd *cmd = (t_cmd *) cmd_lst->content;
+		char *line = cmd->line;
+		// printf("%s\n", cmd->line);
+		
+		int num_words = 0;
+		int num_redirects = 0;
+		int i = 0;
+
+		char **words = ft_calloc(1, sizeof(char *));
+		while (line[i])
+		{
+			if (line[i] && is_space(line[i]))
+			{
+				i++;
+				continue ;
+			}
+			if (is_redirect(line + i))
+			{
+				num_redirects++;
+				// skip and process redirect
+				// since we have verified that it isn't final
+				i += is_redirect(line + i);
+				while (is_space(line[i]))
+					i++;
+				while (line[i] && !is_space(line[i]) && !is_redirect(line + i))
+				{
+					if (line[i] == '"')
+					{
+						char *endquote = ft_strchr(line + i + 1, '"');
+						i += endquote - (line + i);
+					}
+					if (line[i] == '\'')
+					{
+						char *endquote = ft_strchr(line + i + 1, '\'');
+						i += endquote - (line + i);
+					}
+					i++;
+				}
+				continue;
+				
+			}
+			else if (line[i] == '"')
+			{
+				char *endquote = ft_strchr(line + i + 1, '"');
+				int len = endquote - (line + i);
+				char *newword = ft_substr(line, i + 1, len - 1);
+				/**
+				 * TODO: strjoin if next char is quote
+				*/
+				words[num_words] = newword;
+				i += len;
+				num_words++;
+				words = ft_realloc((void *) words, num_words * sizeof(char *), (num_words + 1) * sizeof (char *));
+				i++;
+				continue ;
+			}
+			else if (line[i] == '\'')
+			{
+				char *endquote = ft_strchr(line + i + 1, '\'');
+				int len = endquote - (line + i);
+				char *newword = ft_substr(line, i + 1, len - 1);
+				/**
+				 * TODO: strjoin if next char is quote
+				*/
+				words[num_words] = newword;
+				i += len;
+				num_words++;
+				words = ft_realloc((void *) words, num_words * sizeof(char *), (num_words + 1) * sizeof (char *));
+				i++;
+				continue ;
+			}
+			else if (line[i] == '$' && (ft_isalnum(line[i + 1]) || line[i + 1] == '?' || line[i + 1] == '_'))
+			{
+				/**
+				 * TODO: if ?, to stop after ? and parse rest as usual token
+				 * if invalid variable name, i.e. $1 or $? 
+				*/
+				i++;
+				int wordstart = i;
+				while (line[i] && ft_isalnum(line[i]))
+					i++;
+				int len = i - wordstart;
+				if (len)
+				{
+					char *var_to_find = ft_substr(line, wordstart, len);
+					printf("searching for: %s\n", var_to_find);
+					free(var_to_find);
+				}
+			}
+			else
+			{
+				int wordstart = i;
+				while (line[i] && !is_space(line[i]) && !is_redirect(line + i))
+				{
+					if (line[i] == '"')
+					{
+						char *endquote = ft_strchr(line + i + 1, '"');
+						i += endquote - (line + i);
+					}
+					if (line[i] == '\'')
+					{
+						char *endquote = ft_strchr(line + i + 1, '\'');
+						i += endquote - (line + i);
+					}
+					i++;
+				}
+				int len = i - wordstart;
+				// printf("len: %i\n", len);
+				char *newword = ft_substr(line, wordstart, len);
+				// printf("new word: %s\n", newword);
+				words[num_words] = newword;
+				// printf("word %i: %s\n", num_words, words[num_words]);
+				num_words++;
+				words = ft_realloc((void *) words, num_words * sizeof(char *), (num_words + 1) * sizeof (char *));
+
+				// printf("x: %s\n", line + i);
+			}
+		}
+		printf("num words: %i. num redirects: %i\n", num_words, num_redirects);
+		
+		for (int i = 0; i < num_words; i++)
+			printf("|%s|\n", words[i]);
+		cmd->words = words;
+		cmd_lst = cmd_lst->next;
+	}
+
+}
+
+
+
+bool is_space(char c)
+{
+	return (c == ' ' || c == '\t' || c == '\n');
 }
 
 bool is_single_pipe(char *line)
@@ -185,12 +346,14 @@ bool is_single_pipe(char *line)
 	return (line && line[0] == '|' && line[1] != '|');
 }
 
-bool is_redirect(char *line)
+int is_redirect(char *line)
 {
-	return (!ft_strncmp(line, ">>", 2)
-		|| !ft_strncmp(line, "<<", 2)
-		|| !ft_strncmp(line, ">", 1)
-		|| !ft_strncmp(line, "<", 1));
+	if (!ft_strncmp(line, ">>", 2) || !ft_strncmp(line, "<<", 2))
+		return (2);
+	else if (!ft_strncmp(line, ">", 1) || !ft_strncmp(line, "<", 1))
+		return (1);
+	else
+		return (0);
 }
 
 bool is_meta(char *line)
@@ -272,7 +435,7 @@ int	count_cmds(t_params *params)
 
 	if (!line)
 		return (0); // zero? or neg?
-	while (ms_isspace(*line))
+	while (is_space(*line))
 		line++;
 	if (!line[0])
 		return (0);
@@ -318,7 +481,7 @@ int	count_cmds(t_params *params)
 				return (-1);
 			}
 			ptr--;
-			while (ms_isspace(*ptr))
+			while (is_space(*ptr))
 			{
 				if (ptr == start)
 				{
@@ -333,7 +496,7 @@ int	count_cmds(t_params *params)
 				return (-1);
 			}
 			ptr = line + 1;
-			while (ms_isspace(*ptr))
+			while (is_space(*ptr))
 			{
 				ptr++;
 				if (!(*ptr))
@@ -356,7 +519,7 @@ int	count_cmds(t_params *params)
 			else
 				line++;
 			ptr = line;
-			while (ms_isspace(*ptr))
+			while (is_space(*ptr))
 			{
 				ptr++;
 				if (!(*ptr))
@@ -383,103 +546,16 @@ int	count_cmds(t_params *params)
 
 void	print_env_lst(t_params *params)
 {
-	t_list *next = params->var_list;
+	t_list *next = params->env_list;
 	while (true)
 	{
 		if (!next)
 			break;
-		t_env_var *var = (t_env_var *) next->content;
+		t_env *var = (t_env *) next->content;
 		printf("%s=%s\n", var->key, var->value);
 		next = next->next;
 	}
 }
-
-void	add_to_words(char ***words, char *str)
-{
-	int		num_strs;
-	size_t	size;
-
-	num_strs = 0;
-	while (*words && (*words)[num_strs] != NULL)
-		num_strs++;
-	size = (num_strs + 1) * sizeof(char *);
-	*words = (char **) ft_realloc(*words, size, size + sizeof(char *));
-	(*words)[num_strs] = str;
-	(*words)[num_strs + 1] = NULL;
-}
-
-
-void	split_line_by_space(char ***words, char *str)
-{
-	int		x;
-	char	**line;
-
-	x = 0;
-	line = ft_split(str, ' ');
-	while (line[x])
-		add_to_words(words, line[x++]);
-	free(line);
-}
-
-int	process_subquote(char *arg, char ***words, char *qstart, char qchar)
-{
-	int		qlen;
-	char	*cmd;
-	char	*qarg;
-
-	if (qstart != arg)
-	{
-		cmd = ft_substr(arg, 0, qstart - arg);
-		split_line_by_space(words, cmd);
-		free(cmd);
-	}
-	qlen = 0;
-	while (qstart[qlen + 1] && qstart[qlen + 1] != qchar)
-		qlen++;
-	if (qlen)
-	{
-		qarg = ft_substr(qstart, 1, qlen + 1);
-		add_to_words(words, qarg);
-		qarg[qlen] = 0;
-	}
-	return (qlen);
-}
-
-
-void parse_quotes(char *line, char ***words)
-{
-	char	*qstart;
-	char	qchar;
-	int		j;
-	int		qlen;
-
-	j = -1;
-	qchar = 0;
-	qstart = NULL;
-	while (line && line[++j])
-	{
-		if (line[j] == '\'' || line[j] == '"')
-		{
-			qstart = line + j;
-			qchar = line[j];
-			break ;
-		}
-	}
-	if (qstart)
-	{
-		qlen = process_subquote(line, words, qstart, qchar);
-		if (j + qlen < ft_strlen(line))
-		{
-			if (line[j + qlen + 1] && (line[j + qlen + 1] == qchar))
-				j++;
-			j++;
-			parse_quotes(line + j + qlen, words);
-		}
-	}
-	else
-		split_line_by_space(words, line);
-}
-
 
 void free_str(char **str)
 {
@@ -552,31 +628,4 @@ char	*check_valid_cmd(char **paths, char *cmd)
 	if (paths[j] == NULL)
 		return (NULL);
 	return (binpath);
-}
-
-void	run_child_command(char **paths, char **cmd, char **envp)
-{
-	char	*binpath;
-
-	if (cmd && cmd[0] && paths)
-		binpath = check_valid_cmd(paths, cmd[0]);
-	else
-		binpath = NULL;
-	if (!binpath)
-	{
-		ft_putstr_fd(cmd[0], STDERR_FILENO);
-		ft_putstr_fd(": command not found\n", STDERR_FILENO);
-		// close(p_fd[1]);
-		// dup2(p_fd[0], STDIN_FILENO);
-		// close(p_fd[0]);
-	}
-	else
-	{
-		// dup2(p_fd[1], STDOUT_FILENO);
-		// close(p_fd[1]);
-		execve(binpath, cmd, envp);
-		perror("");
-		if (binpath)
-			free(binpath);
-	}
 }
