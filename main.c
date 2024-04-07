@@ -27,6 +27,7 @@
 typedef struct s_cmd
 {
 	int		num_words;
+	int		num_redirects;
 	char	*line;
 	char	**words;
 	char	*input_redirect;
@@ -97,15 +98,15 @@ void free_env(void *ptr)
 void free_cmds(void *ptr)
 {
 	t_cmd *cmd = (t_cmd *) ptr;
-	char **words = cmd->words;
+	// char **words = cmd->words;
 
-	int i = 0;
-	while (words[i])
-	{
-		free_str(words + i);
-		i++;
-	}
-	safe_free((void **) &words);
+	// int i = 0;
+	// while (words[i])
+	// {
+	// 	free_str(words + i);
+	// 	i++;
+	// }
+	// safe_free((void **) &words);
 	safe_free((void **) &(cmd->line));
 	safe_free((void **) &(cmd));
 
@@ -186,7 +187,79 @@ int main(int ac, char **av, char **envp)
 	free_str(&(params.line));
 }
 
+bool valid_env_char(char c)
+{
+	return (ft_isalnum(c) || c == '_');
+}
 
+
+char *valid_env_var(char *line)
+{
+	char *result;
+
+	int i = 1;
+	/**
+	 * TODO: special treatment for $?
+	*/
+	if (line[i] == '_' || ft_isalpha(line[i]))
+	{
+		i++;
+		while (valid_env_char(line[i]))
+			i++;
+		result = ft_substr(line, 1, i - 1);
+		return result;
+	}
+
+	return (NULL);
+}
+
+char *parse_env_var(t_list *env_lst, char *var)
+{
+
+	while (env_lst)
+	{
+		t_env *env_node = env_lst->content;
+
+		if (!ft_strncmp(var, env_node->key, ft_strlen(var)))
+		{
+			// printf("%s\n", env_node->value);
+			return (env_node->value);
+		}
+
+		env_lst = env_lst->next;
+	}
+	return (NULL);
+}
+
+int		len_to_alloc(char *line, int *ptr)
+{
+	int i = 0;
+
+	if (!line[i] || is_redirect(line) || is_space(line[i]))
+		return (0);
+	else if (line[i] == '\'')
+	{
+		i++;
+		while (line[i] != '\'')
+			i++;
+		i++;
+		*ptr += 2;	
+		return (i + len_to_alloc(line + i, ptr) - 2);
+	}
+	else if (line[i] == '"')
+	{
+		i++;
+		while (line[i] != '"')
+		{
+			i++;
+		}
+		i++;
+		*ptr += 2;	
+		return (i + len_to_alloc(line + i, ptr) - 2);
+	}
+	else
+		return (1 + len_to_alloc(line + 1, ptr));
+}
 
 void	create_words(t_params *params)
 {
@@ -208,10 +281,8 @@ void	create_words(t_params *params)
 	{
 		t_cmd *cmd = (t_cmd *) cmd_lst->content;
 		char *line = cmd->line;
-		// printf("%s\n", cmd->line);
+		// printf("line : %s\n", cmd->line);
 		
-		int num_words = 0;
-		int num_redirects = 0;
 		int i = 0;
 
 		char **words = ft_calloc(1, sizeof(char *));
@@ -224,114 +295,53 @@ void	create_words(t_params *params)
 			}
 			if (is_redirect(line + i))
 			{
-				num_redirects++;
+				cmd->num_redirects++;
 				// skip and process redirect
 				// since we have verified that it isn't final
 				i += is_redirect(line + i);
 				while (is_space(line[i]))
 					i++;
-				while (line[i] && !is_space(line[i]) && !is_redirect(line + i))
-				{
-					if (line[i] == '"')
-					{
-						char *endquote = ft_strchr(line + i + 1, '"');
-						i += endquote - (line + i);
-					}
-					if (line[i] == '\'')
-					{
-						char *endquote = ft_strchr(line + i + 1, '\'');
-						i += endquote - (line + i);
-					}
-					i++;
-				}
-				continue;
-				
-			}
-			else if (line[i] == '"')
-			{
-				char *endquote = ft_strchr(line + i + 1, '"');
-				int len = endquote - (line + i);
-				char *newword = ft_substr(line, i + 1, len - 1);
-				/**
-				 * TODO: strjoin if next char is quote
-				*/
-				words[num_words] = newword;
+				int len = len_to_alloc(line + i, &i);
 				i += len;
-				num_words++;
-				words = ft_realloc((void *) words, num_words * sizeof(char *), (num_words + 1) * sizeof (char *));
-				i++;
-				continue ;
+				printf("redirect len to alloc: %i\n", len);
 			}
-			else if (line[i] == '\'')
+			else if (line[i] == '$')
 			{
-				char *endquote = ft_strchr(line + i + 1, '\'');
-				int len = endquote - (line + i);
-				char *newword = ft_substr(line, i + 1, len - 1);
-				/**
-				 * TODO: strjoin if next char is quote
-				*/
-				words[num_words] = newword;
-				i += len;
-				num_words++;
-				words = ft_realloc((void *) words, num_words * sizeof(char *), (num_words + 1) * sizeof (char *));
-				i++;
-				continue ;
-			}
-			else if (line[i] == '$' && (ft_isalnum(line[i + 1]) || line[i + 1] == '?' || line[i + 1] == '_'))
-			{
-				/**
-				 * TODO: if ?, to stop after ? and parse rest as usual token
-				 * if invalid variable name, i.e. $1 or $? 
-				*/
-				i++;
-				int wordstart = i;
-				while (line[i] && ft_isalnum(line[i]))
-					i++;
-				int len = i - wordstart;
-				if (len)
+				cmd->num_words++;
+
+				char *var = valid_env_var(line + i);
+				if (var)
 				{
-					char *var_to_find = ft_substr(line, wordstart, len);
-					printf("searching for: %s\n", var_to_find);
-					free(var_to_find);
+					printf("VAR: %s\n", var);
+					char *value = parse_env_var(env_lst, var);
+					if (value)
+					{
+						printf("VALUE: %s\n", value);
+					}
+					i+= ft_strlen(var) + 1;
+					free_str(&var);
+				}	
+				else
+				{
+					// invalid $var
+					int len = len_to_alloc(line + i, &i);
+					i += len;
+					printf("len to alloc: %i\n", len);
 				}
 			}
 			else
 			{
-				int wordstart = i;
-				while (line[i] && !is_space(line[i]) && !is_redirect(line + i))
-				{
-					if (line[i] == '"')
-					{
-						char *endquote = ft_strchr(line + i + 1, '"');
-						i += endquote - (line + i);
-					}
-					if (line[i] == '\'')
-					{
-						char *endquote = ft_strchr(line + i + 1, '\'');
-						i += endquote - (line + i);
-					}
-					i++;
-				}
-				int len = i - wordstart;
-				// printf("len: %i\n", len);
-				char *newword = ft_substr(line, wordstart, len);
-				// printf("new word: %s\n", newword);
-				words[num_words] = newword;
-				// printf("word %i: %s\n", num_words, words[num_words]);
-				num_words++;
-				words = ft_realloc((void *) words, num_words * sizeof(char *), (num_words + 1) * sizeof (char *));
-
-				// printf("x: %s\n", line + i);
+				cmd->num_words++;
+				int len = len_to_alloc(line + i, &i);
+				i += len;
+				printf("len to alloc: %i\n", len);
 			}
+			// printf("line: %s\n", line + i);
+
 		}
-		printf("num words: %i. num redirects: %i\n", num_words, num_redirects);
-		
-		for (int i = 0; i < num_words; i++)
-			printf("|%s|\n", words[i]);
-		cmd->words = words;
+		printf("num words: %i. num redirects: %i\n", cmd->num_words, cmd->num_redirects);
 		cmd_lst = cmd_lst->next;
 	}
-
 }
 
 
