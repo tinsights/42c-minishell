@@ -312,14 +312,19 @@ void	create_words(t_params *params)
 				char *var = valid_env_var(line + i);
 				if (var)
 				{
+					int len = 0;
 					printf("VAR: %s\n", var);
 					char *value = parse_env_var(env_lst, var);
 					if (value)
 					{
 						printf("VALUE: %s\n", value);
+						len = ft_strlen(value);
 					}
 					i+= ft_strlen(var) + 1;
 					free_str(&var);
+					len += len_to_alloc(line + i, &i);
+					i += len;
+					printf("env var len to alloc: %i\n", len);
 				}	
 				else
 				{
