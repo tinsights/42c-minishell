@@ -30,8 +30,8 @@ typedef struct s_cmd
 	int		num_redirects;
 	char	*line;
 	char	**words;
-	char	*input_redirect;
-	char	*output_redirect;
+	char	**input_redirect;
+	char	**output_redirect;
 }	t_cmd;
 
 typedef struct s_env
@@ -172,6 +172,7 @@ int main(int ac, char **av, char **envp)
 			 * with output and input redirects
 			 * 
 			*/
+			// TODO: handle heredocs
 			create_cmds(&params);
 			create_words(&params);
 			ft_lstclear(&params.cmd_list, free_cmds);
@@ -193,7 +194,12 @@ bool valid_env_char(char c)
 }
 
 
-char *valid_env_var(char *line)
+bool valid_env_str(char *line)
+{
+	return (*line == '$' && (line[1] == '?' || line[1] == '_' || ft_isalpha(line[1])));
+}
+
+char *get_env_key(char *line)
 {
 	char *result;
 
@@ -231,34 +237,52 @@ char *parse_env_var(t_list *env_lst, char *var)
 	return (NULL);
 }
 
-int		len_to_alloc(char *line, int *ptr)
+int		len_to_alloc(char *line, int *ptr, t_list *env_lst, char qstart)
 {
-	int i = 0;
-
-	if (!line[i] || is_redirect(line) || is_space(line[i]))
-		return (0);
-	else if (line[i] == '\'')
+	if (qstart && *line == qstart)
 	{
-		i++;
-		while (line[i] != '\'')
-			i++;
-		i++;
 		*ptr += 2;	
-		return (i + len_to_alloc(line + i, ptr) - 2);
+		line++;
+		qstart = 0;
 	}
-	else if (line[i] == '"')
+
+	if (!qstart && (!*line || is_redirect(line) || is_space(*line)))
+		return (0);
+	else if (!qstart && *line == '\'')
 	{
-		i++;
-		while (line[i] != '"')
+		line++;
+		return (len_to_alloc(line, ptr, env_lst, '\''));
+	}
+	else if (!qstart && *line == '"')
+	{
+		line++;
+		return (len_to_alloc(line, ptr, env_lst, '"'));
+
+	}
+	else if (qstart != '\'' && valid_env_str(line))
+	{
+		char *var = get_env_key(line);
+		int	key_len = 0;
+		int len = 0;
+
+		printf("\t\t VAR: %s\n", var);
+		char *value = parse_env_var(env_lst, var);
+		if (value)
 		{
-			i++;
+			printf("\t\t VALUE: %s\n", value);
+			len = ft_strlen(value);
 		}
-		i++;
-		*ptr += 2;	
-		return (i + len_to_alloc(line + i, ptr) - 2);
+		key_len = ft_strlen(var) + 1;
+		line += key_len;
+		*ptr += key_len;
+		free_str(&var);
+		printf("\t\t env var len to alloc: %i\n", len);
+		return (len + len_to_alloc(line, ptr, env_lst, qstart));
 	}
 	else
-		return (1 + len_to_alloc(line + 1, ptr));
+	{	(*ptr)++;
+		return (1 + len_to_alloc(line + 1, ptr, env_lst, qstart));
+	}
 }
 
 void count_bytes(t_list *cmd_lst, t_list *env_lst)
@@ -266,7 +290,6 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 	t_cmd *cmd = (t_cmd *) cmd_lst->content;
 		char *line = cmd->line;
 		// printf("line : %s\n", cmd->line);
-		
 		int i = 0;
 
 		char **words = ft_calloc(1, sizeof(char *));
@@ -285,55 +308,18 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 				i += is_redirect(line + i);
 				while (is_space(line[i]))
 					i++;
-				int len = len_to_alloc(line + i, &i);
-				i += len;
+				int len = len_to_alloc(line + i, &i, env_lst, 0);
 				printf("redirect len to alloc: %i\n", len);
-			}
-			else if (line[i] == '$')
-			{
-				int len = 0;
-
-				char *var = valid_env_var(line + i);
-				if (var)
-				{
-					printf("VAR: %s\n", var);
-					char *value = parse_env_var(env_lst, var);
-					if (value)
-					{
-						printf("VALUE: %s\n", value);
-						len = ft_strlen(value);
-					}
-					i+= ft_strlen(var) + 1;
-					free_str(&var);
-					int concat_len = len_to_alloc(line + i, &i);
-					if (concat_len)
-					{
-						len += concat_len;
-						i += concat_len;
-					}
-					if (len)
-						cmd->num_words++;
-					printf("env var len to alloc: %i\n", len);
-				}	
-				else
-				{
-					// invalid $var
-					cmd->num_words++;
-					len += len_to_alloc(line + i, &i);
-					i += len;
-					printf("len to alloc: %i\n", len);
-				}
 			}
 			else
 			{
-				cmd->num_words++;
-				int len = len_to_alloc(line + i, &i);
-				i += len;
-				printf("len to alloc: %i\n", len);
+				int len = len_to_alloc(line + i, &i, env_lst, 0);
+				if (len)
+					cmd->num_words++;
+
+				printf("xx len to alloc: %i\n", len);
 			}
-			printf("i: %i. line: %s\n",i,  line + i);
-
-
+			printf("i: %i. line: %s\n", i,  line + i);
 		}
 		printf("num words: %i. num redirects: %i\n", cmd->num_words, cmd->num_redirects);
 }
