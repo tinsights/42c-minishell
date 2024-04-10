@@ -98,15 +98,16 @@ void free_env(void *ptr)
 void free_cmds(void *ptr)
 {
 	t_cmd *cmd = (t_cmd *) ptr;
-	// char **words = cmd->words;
+	char **words = cmd->words;
 
-	// int i = 0;
-	// while (words[i])
-	// {
-	// 	free_str(words + i);
-	// 	i++;
-	// }
-	// safe_free((void **) &words);
+	int i = 0;
+	while (i < cmd->num_words)
+	{
+		printf("clearing %p %s\n", words[i], words[i]);
+		free_str(words + i);
+		i++;
+	}
+	safe_free((void **) &words);
 	safe_free((void **) &(cmd->line));
 	safe_free((void **) &(cmd));
 
@@ -148,7 +149,7 @@ int main(int ac, char **av, char **envp)
 	/*                            Read line with prompt                           */
 	/* -------------------------------------------------------------------------- */
 	static unsigned int totallen;
-	while (i--)
+	while (i-- / 10)
 	{
 		free_str(&(params.line));
 		params.line = readline("$> ");
@@ -237,26 +238,31 @@ char *parse_env_var(t_list *env_lst, char *var)
 	return (NULL);
 }
 
-int		len_to_alloc(char *line, int *ptr, t_list *env_lst, char qstart)
+int		len_to_alloc_2(char **line_ptr, t_list *env_lst, char qstart)
 {
+	char *line = *line_ptr;
+
+	if (!qstart && (!*line || is_redirect(line) || is_space(*line)))
+		return (0);
+
 	if (qstart && *line == qstart)
 	{
-		*ptr += 2;	
+		(*line_ptr)++;
 		line++;
 		qstart = 0;
 	}
 
 	if (!qstart && (!*line || is_redirect(line) || is_space(*line)))
-		return (0);
+		return (1);
 	else if (!qstart && *line == '\'')
 	{
-		line++;
-		return (len_to_alloc(line, ptr, env_lst, '\''));
+		(*line_ptr)++;
+		return (len_to_alloc_2(line_ptr, env_lst, '\''));
 	}
 	else if (!qstart && *line == '"')
 	{
-		line++;
-		return (len_to_alloc(line, ptr, env_lst, '"'));
+		(*line_ptr)++;
+		return (len_to_alloc_2(line_ptr, env_lst, '"'));
 
 	}
 	else if (qstart != '\'' && valid_env_str(line))
@@ -274,9 +280,63 @@ int		len_to_alloc(char *line, int *ptr, t_list *env_lst, char qstart)
 		}
 		key_len = ft_strlen(var) + 1;
 		line += key_len;
-		*ptr += key_len;
+		*line_ptr += key_len;
 		free_str(&var);
 		printf("\t\t env var len to alloc: %i\n", len);
+		return (len + len_to_alloc_2(line_ptr, env_lst, qstart));
+	}
+	else
+	{	
+		(*line_ptr)++;
+		return (1 + len_to_alloc_2(line_ptr, env_lst, qstart));
+	}
+}
+
+
+int		len_to_alloc(char *line, int *ptr, t_list *env_lst, char qstart)
+{
+
+	if (!qstart && (!*line || is_redirect(line) || is_space(*line)))
+		return (0);
+
+	if (qstart && *line == qstart)
+	{
+		*ptr += 2;	
+		line++;
+		qstart = 0;
+	}
+
+	if (!qstart && (!*line || is_redirect(line) || is_space(*line)))
+		return (1);
+	else if (!qstart && *line == '\'')
+	{
+		line++;
+		return (len_to_alloc(line, ptr, env_lst, '\''));
+	}
+	else if (!qstart && *line == '"')
+	{
+		line++;
+		return (len_to_alloc(line, ptr, env_lst, '"'));
+
+	}
+	else if (qstart != '\'' && valid_env_str(line))
+	{
+		char *var = get_env_key(line);
+		int	key_len = 0;
+		int len = 0;
+
+		// printf("\t\t VAR: %s\n", var);
+		char *value = parse_env_var(env_lst, var);
+		if (value)
+		{
+			// printf("\t\t VALUE: %s\n", value);
+			len = ft_strlen(value);
+		}
+		key_len = ft_strlen(var) + 1;
+		line += key_len;
+		*ptr += key_len;
+		free_str(&var);
+		// printf("\t\t env var len to alloc: %i\n", len);
 		return (len + len_to_alloc(line, ptr, env_lst, qstart));
 	}
 	else
@@ -285,43 +345,88 @@ int		len_to_alloc(char *line, int *ptr, t_list *env_lst, char qstart)
 	}
 }
 
+void copy_bytes(t_list *cmd_lst, t_list *env_lst)
+{
+	t_cmd *cmd = (t_cmd *) cmd_lst->content;
+	char *line = cmd->line;
+	// printf("line : %s\n", cmd->line);
+	int i = 0;
+	int curr_word = 0;
+	while (line[i])
+	{
+		if (line[i] && is_space(line[i]))
+		{
+			i++;
+			continue ;
+		}
+		if (is_redirect(line + i))
+		{
+			cmd->num_redirects++;
+			// skip and process redirect
+			// since we have verified that it isn't final
+			i += is_redirect(line + i);
+			while (is_space(line[i]))
+				i++;
+			int len = len_to_alloc(line + i, &i, env_lst, 0);
+			printf("redirect len to alloc: %i\n", len);
+		}
+		else
+		{
+			int len = len_to_alloc(line + i, &i, env_lst, 0);
+			if (len)
+			{
+				// char *word = ft_calloc(len, sizeof(char));
+				// words = ft_realloc(words, cmd->num_words * sizeof(char*), (cmd->num_words + 1) * sizeof(char*));
+				// cmd->num_words++;
+			}
+		}
+		// printf("i: %i. line: %s\n", i,  line + i);
+	}
+}
+
 void count_bytes(t_list *cmd_lst, t_list *env_lst)
 {
 	t_cmd *cmd = (t_cmd *) cmd_lst->content;
-		char *line = cmd->line;
-		// printf("line : %s\n", cmd->line);
-		int i = 0;
+	char *line = cmd->line;
+	// printf("line : %s\n", cmd->line);
+	// int i = 0;
 
-		char **words = ft_calloc(1, sizeof(char *));
-		while (line[i])
+	char **words = ft_calloc(1, sizeof(char **));
+	while (*line)
+	{
+		if (*line && is_space(*line))
 		{
-			if (line[i] && is_space(line[i]))
-			{
-				i++;
-				continue ;
-			}
-			if (is_redirect(line + i))
-			{
-				cmd->num_redirects++;
-				// skip and process redirect
-				// since we have verified that it isn't final
-				i += is_redirect(line + i);
-				while (is_space(line[i]))
-					i++;
-				int len = len_to_alloc(line + i, &i, env_lst, 0);
-				printf("redirect len to alloc: %i\n", len);
-			}
-			else
-			{
-				int len = len_to_alloc(line + i, &i, env_lst, 0);
-				if (len)
-					cmd->num_words++;
-
-				printf("xx len to alloc: %i\n", len);
-			}
-			printf("i: %i. line: %s\n", i,  line + i);
+			line++;
+			continue ;
 		}
-		printf("num words: %i. num redirects: %i\n", cmd->num_words, cmd->num_redirects);
+		if (is_redirect(line))
+		{
+			cmd->num_redirects++;
+			// skip and process redirect
+			// since we have verified that it isn't final
+			line += is_redirect(line);
+			while (is_space(*line))
+				line++;
+			// int len = len_to_alloc(line + i, &i, env_lst, 0);
+			// printf("redirect len to alloc: %i\n", len);
+		}
+		else
+		{
+			int len = len_to_alloc_2(&line, env_lst, 0);
+			if (len)
+			{
+				// char *word = ft_calloc(len, sizeof(char));
+				printf("allocating pointer of len %i\n", len);
+				printf("line is crrently %s\n", line);
+				words[cmd->num_words] = ft_calloc(len, sizeof(char));
+				cmd->num_words++;
+				words = ft_realloc(words, cmd->num_words * sizeof(char*), (cmd->num_words + 1) * sizeof(char*));
+			}
+		}
+		// printf("i: %i. line: %s\n", i,  line + i);
+	}
+	cmd->words = words;
+	printf("num words: %i. num redirects: %i\n", cmd->num_words, cmd->num_redirects);
 }
 
 void	create_words(t_params *params)
@@ -343,6 +448,7 @@ void	create_words(t_params *params)
 	while (cmd_lst)
 	{
 		count_bytes(cmd_lst, env_lst);
+		copy_bytes(cmd_lst, env_lst);
 		cmd_lst = cmd_lst->next;
 	}
 }
@@ -420,7 +526,7 @@ void create_cmds(t_params *params)
 
 			int len = line - (start + total_len);
 
-			printf("len : %i\n", len);
+			printf("total cmd len : %i\n", len);
 			cmd->line = ft_substr(params->line, total_len, len);
 			total_len += len + 1;
 
