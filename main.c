@@ -261,25 +261,9 @@ int		len_to_alloc(char *line, int *ptr)
 		return (1 + len_to_alloc(line + 1, ptr));
 }
 
-void	create_words(t_params *params)
+void count_bytes(t_list *cmd_lst, t_list *env_lst)
 {
-	/**
-	 * TODO: Go through entire word,
-	 * skip IFS/whitespace,
-	 * if unquoted string
-	 * malloc and add to **words arr
-	 * if single quoted string
-	 * remove quotes and add to **words
-	 * if redirect operator,
-	 * find filename and run redir prep
-	*/
-
-	t_list *env_lst = params->env_list;
-	t_list *cmd_lst = params->cmd_list;
-
-	while (cmd_lst)
-	{
-		t_cmd *cmd = (t_cmd *) cmd_lst->content;
+	t_cmd *cmd = (t_cmd *) cmd_lst->content;
 		char *line = cmd->line;
 		// printf("line : %s\n", cmd->line);
 		
@@ -307,12 +291,11 @@ void	create_words(t_params *params)
 			}
 			else if (line[i] == '$')
 			{
-				cmd->num_words++;
+				int len = 0;
 
 				char *var = valid_env_var(line + i);
 				if (var)
 				{
-					int len = 0;
 					printf("VAR: %s\n", var);
 					char *value = parse_env_var(env_lst, var);
 					if (value)
@@ -322,14 +305,21 @@ void	create_words(t_params *params)
 					}
 					i+= ft_strlen(var) + 1;
 					free_str(&var);
-					len += len_to_alloc(line + i, &i);
-					i += len;
+					int concat_len = len_to_alloc(line + i, &i);
+					if (concat_len)
+					{
+						len += concat_len;
+						i += concat_len;
+					}
+					if (len)
+						cmd->num_words++;
 					printf("env var len to alloc: %i\n", len);
 				}	
 				else
 				{
 					// invalid $var
-					int len = len_to_alloc(line + i, &i);
+					cmd->num_words++;
+					len += len_to_alloc(line + i, &i);
 					i += len;
 					printf("len to alloc: %i\n", len);
 				}
@@ -341,10 +331,32 @@ void	create_words(t_params *params)
 				i += len;
 				printf("len to alloc: %i\n", len);
 			}
-			// printf("line: %s\n", line + i);
+			printf("i: %i. line: %s\n",i,  line + i);
+
 
 		}
 		printf("num words: %i. num redirects: %i\n", cmd->num_words, cmd->num_redirects);
+}
+
+void	create_words(t_params *params)
+{
+	/**
+	 * TODO: Go through entire word,
+	 * skip IFS/whitespace,
+	 * if unquoted string
+	 * malloc and add to **words arr
+	 * if single quoted string
+	 * remove quotes and add to **words
+	 * if redirect operator,
+	 * find filename and run redir prep
+	*/
+
+	t_list *env_lst = params->env_list;
+	t_list *cmd_lst = params->cmd_list;
+
+	while (cmd_lst)
+	{
+		count_bytes(cmd_lst, env_lst);
 		cmd_lst = cmd_lst->next;
 	}
 }
