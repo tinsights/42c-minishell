@@ -23,6 +23,20 @@
 
 #include <fcntl.h> // open
 
+typedef enum e_redir_type
+{
+	input,
+	out_append,
+	out_trunc,
+	heredoc
+}	t_redir_type;
+
+typedef struct s_redir
+{
+	char			*file;
+	t_redir_type	type;
+} t_redir;
+
 
 typedef struct s_cmd
 {
@@ -30,8 +44,7 @@ typedef struct s_cmd
 	int		num_redirects;
 	char	*line;
 	char	**words;
-	char	**input_redirects;
-	char	**output_redirects;
+	t_redir	*redirs;
 }	t_cmd;
 
 typedef struct s_env
@@ -66,6 +79,7 @@ void	create_words(t_params *params);
 bool 	is_meta(char *line);
 bool 	is_space(char c);
 int		is_redirect(char *line);
+t_redir_type get_redir_type(char *line);
 
 
 
@@ -99,7 +113,9 @@ void free_cmds(void *ptr)
 {
 	t_cmd *cmd = (t_cmd *) ptr;
 	char **words = cmd->words;
-	char **output_redirects = cmd->output_redirects;
+	t_redir *redirects = cmd->redirs;
+
+	char *types[4] = {"input", "append", "trunc", "heredoc"};
 
 	int i = 0;
 	while (i < cmd->num_words)
@@ -111,12 +127,13 @@ void free_cmds(void *ptr)
 	i = 0;
 	while (i < cmd->num_redirects)
 	{
-		printf("clearing %p %s\n", output_redirects[i], output_redirects[i]);
-		free_str(output_redirects + i);
+		printf("clearing %p %s ", redirects[i].file, redirects[i].file);
+		printf("of type %s\n", types[redirects[i].type]);
+		free_str(&(redirects[i].file));
 		i++;
 	}
 	safe_free((void **) &words);
-	safe_free((void **) &output_redirects);
+	safe_free((void **) &redirects);
 	safe_free((void **) &(cmd->line));
 	safe_free((void **) &(cmd));
 
@@ -278,17 +295,17 @@ int		len_to_alloc_2(char **line_ptr, t_list *env_lst, char qstart)
 		int	key_len = 0;
 		int len = 0;
 
-		printf("\t\t VAR: %s\n", var);
+		// printf("\t\t VAR: %s\n", var);
 		char *value = parse_env_var(env_lst, var);
 		if (value)
 		{
-			printf("\t\t VALUE: %s\n", value);
+			// printf("\t\t VALUE: %s\n", value);
 			len = ft_strlen(value);
 		}
 		key_len = ft_strlen(var) + 1;
 		*line_ptr += key_len;
 		free_str(&var);
-		printf("\t\t env var len to alloc: %i\n", len);
+		// printf("\t\t env var len to alloc: %i\n", len);
 		return (len + len_to_alloc_2(line_ptr, env_lst, qstart));
 	}
 	else
@@ -307,16 +324,6 @@ int		len_to_alloc_2(char **line_ptr, t_list *env_lst, char qstart)
 
 void	word_copy(char **line_ptr, t_list *env_lst, char qstart, char *word)
 {
-
-	// static size_t size;
-
-	// if (!size)
-	// {
-	// 	size = ft_strlen(word);
-	// 	printf("\t\t size of current buffer is %i\n", size);
-	// 	ft_memset(word, 0, size);
-	// }
-	
 	if (qstart && **line_ptr == qstart)
 	{
 		(*line_ptr)++;
@@ -392,8 +399,8 @@ void copy_bytes(t_list *cmd_lst, t_list *env_lst)
 			while (is_space(*line))
 				line++;
 
-			char *redirect = cmd->output_redirects[curr_redirect];
-			word_copy(&line, env_lst, 0, redirect);
+			t_redir redirect = cmd->redirs[curr_redirect];
+			word_copy(&line, env_lst, 0, redirect.file);
 			curr_redirect++;
 		}
 		else
@@ -414,7 +421,8 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 	// int i = 0;
 
 	char **words = ft_calloc(1, sizeof(char **));
-	char **redirects = ft_calloc(1, sizeof(char **));
+	// char **redirects = ft_calloc(1, sizeof(char **));
+	t_redir *redirs = cmd->redirs;
 	while (*line)
 	{
 		if (*line && is_space(*line))
@@ -424,8 +432,7 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 		}
 		if (is_redirect(line))
 		{
-			//if heredoc,
-			// process heredoc
+			t_redir_type type = get_redir_type(line);
 
 
 			// skip and process redirect
@@ -434,12 +441,13 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 			while (is_space(*line))
 				line++;
 			int len = len_to_alloc_2(&line, env_lst, 0);
-			printf("allocating pointer of len %i\n", len);
-			printf("line is crrently %s\n", line);
-			char *redirect = ft_calloc(len + 1, sizeof(char));
-			redirects[cmd->num_redirects] = redirect;
+			// printf("allocating pointer of len %i\n", len);
+			// printf("line is crrently %s\n", line);
+			redirs = ft_realloc(redirs, cmd->num_redirects * sizeof(t_redir), (cmd->num_redirects + 1) * sizeof(t_redir));
+			char *redir_file = ft_calloc(len + 1, sizeof(char));
+			redirs[cmd->num_redirects].file = redir_file;
+			redirs[cmd->num_redirects].type = type;
 			cmd->num_redirects++;
-			redirects = ft_realloc(redirects, cmd->num_redirects * sizeof(char*), (cmd->num_redirects + 1) * sizeof(char*));
 			// printf("redirect len to alloc: %i\n", len);
 		}
 		else
@@ -448,8 +456,8 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 			if (len)
 			{
 				// char *word = ft_calloc(len, sizeof(char));
-				printf("allocating pointer of len %i\n", len);
-				printf("line is crrently %s\n", line);
+				// printf("allocating pointer of len %i\n", len);
+				// printf("line is crrently %s\n", line);
 				char *word = ft_calloc(len + 1, sizeof(char));
 				words[cmd->num_words] = word;
 				cmd->num_words++;
@@ -459,7 +467,7 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 		// printf("i: %i. line: %s\n", i,  line + i);
 	}
 	cmd->words = words;
-	cmd->output_redirects = redirects;
+	cmd->redirs = redirs;
 	printf("num words: %i. num redirects: %i\n", cmd->num_words, cmd->num_redirects);
 }
 
@@ -487,7 +495,21 @@ void	create_words(t_params *params)
 	}
 }
 
+t_redir_type get_redir_type(char *line)
+{
+	int i = 0;
 
+	if (!ft_strncmp(line, ">>", 2))
+		return out_append;
+	else if (!ft_strncmp(line, "<<", 2))
+		return heredoc;
+	else if (!ft_strncmp(line, ">", 1))
+		return out_trunc;
+	else if (!ft_strncmp(line, "<", 1))
+		return input;
+	else
+		return (-1);
+}
 
 bool is_space(char c)
 {
@@ -544,7 +566,7 @@ void create_cmds(t_params *params)
 
 			int len = line - (start + total_len);
 
-			printf("len : %i\n", len);
+			// printf("len : %i\n", len);
 			cmd->line = ft_substr(params->line, total_len, len);
 			total_len += len + 1;
 
@@ -560,7 +582,7 @@ void create_cmds(t_params *params)
 
 			int len = line - (start + total_len);
 
-			printf("total cmd len : %i\n", len);
+			// printf("total cmd len : %i\n", len);
 			cmd->line = ft_substr(params->line, total_len, len);
 			total_len += len + 1;
 
