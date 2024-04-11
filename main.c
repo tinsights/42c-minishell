@@ -70,7 +70,6 @@ char	**find_paths(char **envp);
 void	free_str(char **p);
 void 	safe_free(void **ptr);
 char	*check_valid_cmd(char **paths, char *cmd);
-void	run_child_command(char **paths, char **cmd, char **envp);
 void	parse_quotes(char *line, char ***words);
 int		count_cmds(t_params *params);
 int		count_strings(char *line);
@@ -80,6 +79,9 @@ bool 	is_meta(char *line);
 bool 	is_space(char c);
 int		is_redirect(char *line);
 t_redir_type get_redir_type(char *line);
+void	recurse_pipe(char **paths, t_list *cmd_lst);
+void run_command(t_params *params, t_list *cmd_lst);
+
 
 
 
@@ -120,15 +122,15 @@ void free_cmds(void *ptr)
 	int i = 0;
 	while (i < cmd->num_words)
 	{
-		printf("clearing %p %s\n", words[i], words[i]);
+		// printf("clearing %p %s\n", words[i], words[i]);
 		free_str(words + i);
 		i++;
 	}
 	i = 0;
 	while (i < cmd->num_redirects)
 	{
-		printf("clearing %p %s ", redirects[i].file, redirects[i].file);
-		printf("of type %s\n", types[redirects[i].type]);
+		// printf("clearing %p %s ", redirects[i].file, redirects[i].file);
+		// printf("of type %s\n", types[redirects[i].type]);
 		free_str(&(redirects[i].file));
 		i++;
 	}
@@ -195,16 +197,34 @@ int main(int ac, char **av, char **envp)
 			params.num_cmds = count_cmds(&params);
 			if (params.num_cmds <= 0)
 				continue ;
-			/** TODO: Prepare linked list of simple commands
+			/** DONE: Prepare linked list of simple commands
 			 * with output and input redirects
-			 * 
+			 * TODO: parse heredoc?
 			*/
 			// TODO: handle heredocs
 			create_cmds(&params);
 			create_words(&params);
-			// check if any of them have heredoc, process heredoc
-			ft_lstclear(&params.cmd_list, free_cmds);
+			/**
+			 * TODO: Process heredoc
+			*/
 
+			/**
+			 * TODO: check if resolved to empty string(s)?
+			*/
+
+
+			/**
+			 * DOING: Run each child command
+			 * 1) for each cmd in cmd_lst
+			 * 2) open a pipe
+			 * 3) fork
+			 * 4) if child, execve cmd words
+			 * 5) if parent, recurse
+			*/
+
+			run_command(&params, params.cmd_list);
+			ft_lstclear(&params.cmd_list, free_cmds);
+			printf("ACHAK!\n");
 		}
 	}
 
@@ -215,6 +235,136 @@ int main(int ac, char **av, char **envp)
 	safe_free((void **) &(params.paths));
 	free_str(&(params.line));
 }
+
+void run_command(t_params *params, t_list *cmd_lst)
+{
+	t_cmd *cmd = cmd_lst->content;
+	char **argv = cmd->words;
+	char *binpath = NULL;
+
+	int pid = fork();
+	if (pid == 0)
+	{
+		char *binpath = check_valid_cmd(params->paths, argv[0]);
+		if (binpath)
+		{
+			execve(binpath, argv, NULL);	// do we need to pass in envp?
+			perror("");
+			free_str(&binpath);
+			exit(1);
+		}
+		else
+		{
+			ft_putstr_fd(argv[0], STDERR_FILENO);
+			ft_putstr_fd(": command not found\n", STDERR_FILENO);
+			free_str(&binpath);
+			exit(1);
+		}
+	}
+	else
+	{
+		//parent
+		if (cmd_lst->next)
+			run_command(params, cmd_lst->next);
+		else
+			waitpid(pid, NULL, 0);
+	}
+	free_str(&binpath);
+}
+
+char	*check_valid_cmd(char **paths, char *cmd)
+{
+	int		j;
+	char	*cmdpath;
+	char	*binpath;
+
+	cmdpath = ft_strjoin("/", cmd);
+	j = 0;
+	while (paths && paths[j])
+	{
+		binpath = ft_strjoin(paths[j], cmdpath);
+		if (!access(binpath, X_OK))
+			break ;
+		free(binpath);
+		j++;
+	}
+	free(cmdpath);
+	if (paths[j] == NULL)
+		return (NULL);
+	return (binpath);
+}
+
+void	run_child_command(int p_fd[2], char **paths, char **cmd)
+{
+	char	*binpath;
+
+	printf("attempting to run ");
+	int i = 0;
+	while (cmd[i])
+		printf("%s ", cmd[i++]);
+	printf("\n");
+
+	if (cmd && cmd[0] && paths)
+		binpath = check_valid_cmd(paths, cmd[0]);
+	else
+		binpath = NULL;
+	if (!binpath)
+	{
+		ft_putstr_fd(cmd[0], STDERR_FILENO);
+		ft_putstr_fd(": command not found\n", STDERR_FILENO);
+		close(p_fd[1]);
+		dup2(p_fd[0], STDIN_FILENO);
+		close(p_fd[0]);
+	}
+	else
+	{
+		dup2(p_fd[1], STDOUT_FILENO);
+		close(p_fd[1]);
+		execve(binpath, cmd, NULL);
+		perror("");
+		if (binpath)
+			free(binpath);
+	}
+}
+
+void	recurse_pipe(char **paths, t_list *cmd_lst)
+{
+	int		p_fd[2];
+	int		pid;
+	t_cmd	*cmd = cmd_lst->content;
+	char	**words = cmd->words;
+
+
+	pipe(p_fd);
+	pid = fork();
+	if (pid == 0)
+	{
+		run_child_command(p_fd, paths, words);
+	}
+	else
+	{
+		if (cmd_lst->next)
+		{
+			close(p_fd[1]);
+			dup2(p_fd[0], STDIN_FILENO);
+			close(p_fd[0]);
+			printf("\t\t recursing\n");
+			recurse_pipe(paths, cmd_lst->next);
+		}
+		else
+		{
+			char c;
+			close(p_fd[1]);
+
+			while (read(p_fd[0], &c, 1))
+				write(STDOUT_FILENO, &c, 1);
+			waitpid(pid, NULL, 0);
+
+		}
+		wait(NULL);
+	}
+}
+
 
 bool valid_env_char(char c)
 {
@@ -468,7 +618,7 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 	}
 	cmd->words = words;
 	cmd->redirs = redirs;
-	printf("num words: %i. num redirects: %i\n", cmd->num_words, cmd->num_redirects);
+	// printf("num words: %i. num redirects: %i\n", cmd->num_words, cmd->num_redirects);
 }
 
 void	create_words(t_params *params)
@@ -781,28 +931,6 @@ void	*ft_realloc(void *ptr, size_t old_size, size_t size)
 	ft_memmove(res, ptr, maxcpy);
 	free(ptr);
 	return (res);
-}
-
-char	*check_valid_cmd(char **paths, char *cmd)
-{
-	int		j;
-	char	*cmdpath;
-	char	*binpath;
-
-	cmdpath = ft_strjoin("/", cmd);
-	j = 0;
-	while (paths && paths[j])
-	{
-		binpath = ft_strjoin(paths[j], cmdpath);
-		if (!access(binpath, X_OK))
-			break ;
-		free(binpath);
-		j++;
-	}
-	free(cmdpath);
-	if (paths[j] == NULL)
-		return (NULL);
-	return (binpath);
 }
 
 int		len_to_alloc(char *line, int *ptr, t_list *env_lst, char qstart)
