@@ -224,7 +224,7 @@ int main(int ac, char **av, char **envp)
 
 			run_command(&params, params.cmd_list);
 			ft_lstclear(&params.cmd_list, free_cmds);
-			printf("ACHAK!\n");
+			// printf("ACHAK!\n");
 		}
 	}
 
@@ -242,9 +242,27 @@ void run_command(t_params *params, t_list *cmd_lst)
 	char **argv = cmd->words;
 	char *binpath = NULL;
 
+	static int default_stdin;
+
+
+	if (!default_stdin)
+		default_stdin = dup(STDIN_FILENO);
+	int p_fd[2];
+
+	p_fd[0] = STDIN_FILENO;
+	p_fd[1] = STDOUT_FILENO;
+	if (cmd_lst->next)
+		pipe(p_fd);	// error checking??
 	int pid = fork();
 	if (pid == 0)
 	{
+		if (p_fd[1] != STDOUT_FILENO)
+		{
+			close(p_fd[0]);
+			printf("executing piped %s\n", argv[0]);
+			dup2(p_fd[1], STDOUT_FILENO);
+			close(p_fd[1]);
+		}
 		char *binpath = check_valid_cmd(params->paths, argv[0]);
 		if (binpath)
 		{
@@ -263,11 +281,26 @@ void run_command(t_params *params, t_list *cmd_lst)
 	}
 	else
 	{
+		
 		//parent
 		if (cmd_lst->next)
+		{
+			if (p_fd[0] != STDIN_FILENO)
+			{
+				close(p_fd[1]);
+
+				// printf("executing piped %s\n", ((t_cmd *) cmd_lst->next->content)->words[0]);
+				dup2(p_fd[0], STDIN_FILENO);
+				close(p_fd[0]);
+			}
 			run_command(params, cmd_lst->next);
+		}
 		else
-			waitpid(pid, NULL, 0);
+		{
+			dup2(default_stdin, STDIN_FILENO);
+		}
+		// wait(NULL);
+		waitpid(pid, NULL, 0);
 	}
 	free_str(&binpath);
 }
@@ -298,11 +331,11 @@ void	run_child_command(int p_fd[2], char **paths, char **cmd)
 {
 	char	*binpath;
 
-	printf("attempting to run ");
-	int i = 0;
-	while (cmd[i])
-		printf("%s ", cmd[i++]);
-	printf("\n");
+	// printf("attempting to run ");
+	// int i = 0;
+	// while (cmd[i])
+	// 	printf("%s ", cmd[i++]);
+	// printf("\n");
 
 	if (cmd && cmd[0] && paths)
 		binpath = check_valid_cmd(paths, cmd[0]);
