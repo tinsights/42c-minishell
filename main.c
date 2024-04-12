@@ -203,6 +203,7 @@ int main(int ac, char **av, char **envp)
 			*/
 			// TODO: handle heredocs
 			create_cmds(&params);
+
 			create_words(&params);
 			/**
 			 * TODO: Process heredoc
@@ -244,34 +245,96 @@ void run_command(t_params *params, t_list *cmd_lst)
 
 	static int default_stdin;
 
-
 	if (!default_stdin)
 		default_stdin = dup(STDIN_FILENO);
 	int p_fd[2];
 
-	p_fd[0] = STDIN_FILENO;
-	p_fd[1] = STDOUT_FILENO;
 	if (cmd_lst->next)
 		pipe(p_fd);	// error checking??
+
+	// if not single builtin, fork
 	int pid = fork();
+
+	// else, run single builtin?
+
+	
+	// printf("pid: %i\n", pid);
+
 	if (pid == 0)
 	{
-		if (p_fd[1] != STDOUT_FILENO)
+		bool redirect_success = true;
+		char *binpath = check_valid_cmd(params->paths, argv[0]);
+
+		if (cmd_lst->next)
 		{
 			close(p_fd[0]);
 			printf("executing piped %s\n", argv[0]);
 			dup2(p_fd[1], STDOUT_FILENO);
 			close(p_fd[1]);
 		}
-		char *binpath = check_valid_cmd(params->paths, argv[0]);
-		if (binpath)
+
+		// process redirects
+		if (cmd->num_redirects > 0 && cmd->redirs)
+		{
+
+			int redir_ctr = 0;
+			while (redirect_success && redir_ctr  < cmd->num_redirects )
+			{
+				t_redir redir = cmd->redirs[redir_ctr];
+
+				if (redir.type == input)
+				{
+					int inputfd = open(redir.file, O_RDONLY);
+					if (inputfd > 0)
+					{
+						dup2(inputfd, STDIN_FILENO);
+						close(inputfd);
+					}
+					else
+					{
+						perror(redir.file);
+						redirect_success = false;
+					}
+				}
+				else if (redir.type == out_append)
+				{
+					int outputfd = open(redir.file, O_WRONLY | O_APPEND | O_CREAT, 0644);
+					if (outputfd > 0)
+					{
+						dup2(outputfd, STDOUT_FILENO);
+						close(outputfd);
+					}
+					else
+					{
+						perror(redir.file);
+						redirect_success = false;
+					}
+				}
+				else if (redir.type == out_trunc)
+				{
+					int outputfd = open(redir.file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+					if (outputfd > 0)
+					{
+						dup2(outputfd, STDOUT_FILENO);
+						close(outputfd);
+					}
+					else
+					{
+						perror(redir.file);
+						redirect_success = false;
+					}
+				}
+				redir_ctr++;
+			}
+		}
+		if (binpath && redirect_success)
 		{
 			execve(binpath, argv, NULL);	// do we need to pass in envp?
 			perror("");
 			free_str(&binpath);
 			exit(1);
 		}
-		else
+		else if (redirect_success)
 		{
 			ft_putstr_fd(argv[0], STDERR_FILENO);
 			ft_putstr_fd(": command not found\n", STDERR_FILENO);
@@ -285,24 +348,24 @@ void run_command(t_params *params, t_list *cmd_lst)
 		//parent
 		if (cmd_lst->next)
 		{
-			if (p_fd[0] != STDIN_FILENO)
-			{
-				close(p_fd[1]);
-
-				// printf("executing piped %s\n", ((t_cmd *) cmd_lst->next->content)->words[0]);
-				dup2(p_fd[0], STDIN_FILENO);
-				close(p_fd[0]);
-			}
+			close(p_fd[1]);
+			// printf("executing piped %s\n", ((t_cmd *) cmd_lst->next->content)->words[0]);
+			dup2(p_fd[0], STDIN_FILENO);
+			close(p_fd[0]);
 			run_command(params, cmd_lst->next);
 		}
 		else
 		{
+			// final command!
+
+			// return stdin to default
 			dup2(default_stdin, STDIN_FILENO);
 		}
-		// wait(NULL);
-		waitpid(pid, NULL, 0);
+			waitpid(pid, NULL, 0);
+
 	}
 	free_str(&binpath);
+	// return exit status
 }
 
 char	*check_valid_cmd(char **paths, char *cmd)
@@ -311,6 +374,8 @@ char	*check_valid_cmd(char **paths, char *cmd)
 	char	*cmdpath;
 	char	*binpath;
 
+	if (!cmd)
+		return (NULL);
 	cmdpath = ft_strjoin("/", cmd);
 	j = 0;
 	while (paths && paths[j])
