@@ -741,18 +741,23 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 			line += is_redirect(line);
 			while (is_space(*line))
 				line++;
+			char *copy = line;
 			int len = len_to_alloc_2(&line, env_lst, 0);
 			// printf("allocating pointer of len %i\n", len);
 			// printf("line is crrently %s\n", line);
 			redirs = ft_realloc(redirs, cmd->num_redirects * sizeof(t_redir), (cmd->num_redirects + 1) * sizeof(t_redir));
 			char *redir_file = ft_calloc(len + 1, sizeof(char));
+			word_copy(&copy, env_lst, 0, redir_file);
+
 			redirs[cmd->num_redirects].file = redir_file;
 			redirs[cmd->num_redirects].type = type;
+
 			cmd->num_redirects++;
 			// printf("redirect len to alloc: %i\n", len);
 		}
 		else
 		{
+			char *copy = line;
 			int len = len_to_alloc_2(&line, env_lst, 0);
 			if (len)
 			{
@@ -761,6 +766,7 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 				// printf("line is crrently %s\n", line);
 				char *word = ft_calloc(len + 1, sizeof(char));
 				words[cmd->num_words] = word;
+				word_copy(&copy, env_lst, 0, words[cmd->num_words]);
 				cmd->num_words++;
 				words = ft_realloc(words, cmd->num_words * sizeof(char*), (cmd->num_words + 1) * sizeof(char*));
 			}
@@ -791,7 +797,7 @@ void	create_words(t_params *params)
 	while (cmd_lst)
 	{
 		count_bytes(cmd_lst, env_lst);
-		copy_bytes(cmd_lst, env_lst);
+		// copy_bytes(cmd_lst, env_lst);
 		cmd_lst = cmd_lst->next;
 	}
 }
