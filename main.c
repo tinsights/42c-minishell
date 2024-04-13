@@ -37,9 +37,17 @@ typedef struct s_redir
 	t_redir_type	type;
 } t_redir;
 
+typedef struct s_proc
+{
+	int 	pid;
+	int 	exit_status;
+	bool	exited; // false
+}	t_proc;
+
 
 typedef struct s_cmd
 {
+	t_proc	proc;
 	int		num_words;
 	int		num_redirects;
 	char	*line;
@@ -59,10 +67,12 @@ typedef struct s_params
 	int			num_cmds;
 	char		*line;
 	char		**paths;
+	bool		interactive; // default true
 
 	t_list		*cmd_list;
 	t_list		*env_list;
 	t_list		*mem_lst;
+	t_list		*child_lst;
 }	t_params;
 
 void	*ft_realloc(void *ptr, size_t old_size, size_t size);
@@ -119,6 +129,10 @@ void free_cmds(void *ptr)
 
 	char *types[4] = {"input", "append", "trunc", "heredoc"};
 
+
+	t_proc proc = cmd->proc;
+
+	printf("%i for command %s exited with status %i\n", proc.pid, words[0], WEXITSTATUS(proc.exit_status));
 	int i = 0;
 	while (i < cmd->num_words)
 	{
@@ -140,6 +154,19 @@ void free_cmds(void *ptr)
 	safe_free((void **) &(cmd));
 
 }
+
+// if recvd sigiint
+// 	if during heredoc (i.e. heredoc_proc = true)
+//		close any temp files
+//		clear gnl static memory
+//		set heredoc_interrupt = true;
+//		
+//  else if child processes running
+// 		if yes, send sigint to all children
+// 		optional received and store the return values (esp for last process)
+// 		clear the child process list/array
+// display new promt
+
 
 int main(int ac, char **av, char **envp)
 {
@@ -205,8 +232,17 @@ int main(int ac, char **av, char **envp)
 			create_cmds(&params);
 
 			create_words(&params);
+
+
+
 			/**
 			 * TODO: Process heredoc
+			 * set heredoc_processing = true;
+			 * 
+			 * if sigint recvd,
+			 * go to next loop iteration
+			 * 
+			 * once done, set hereodc_proc = false
 			*/
 
 			/**
@@ -223,7 +259,15 @@ int main(int ac, char **av, char **envp)
 			 * 5) if parent, recurse
 			*/
 
+			// check if heredoc_interrupt == true
+			// if yes, skip
+
+			// set interactive to false
+			params.interactive = false;
 			run_command(&params, params.cmd_list);
+			// set interactive to true
+			params.interactive = true;
+			// check all children return status
 			ft_lstclear(&params.cmd_list, free_cmds);
 			// printf("ACHAK!\n");
 		}
@@ -329,7 +373,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 		}
 		if (binpath && redirect_success)
 		{
-			execve(binpath, argv, NULL);	// do we need to pass in envp?
+			execve(binpath, argv, __environ);	// do we need to pass in envp?
 			perror("");
 			free_str(&binpath);
 			exit(1);
@@ -344,8 +388,9 @@ void run_command(t_params *params, t_list *cmd_lst)
 	}
 	else
 	{
-		
 		//parent
+
+		cmd->proc.pid = pid;
 		if (cmd_lst->next)
 		{
 			close(p_fd[1]);
@@ -360,8 +405,16 @@ void run_command(t_params *params, t_list *cmd_lst)
 
 			// return stdin to default
 			dup2(default_stdin, STDIN_FILENO);
+
+
 		}
-			waitpid(pid, NULL, 0);
+
+
+			// printf("hello from parent of %i\n", pid);
+			waitpid(pid, &(cmd->proc.exit_status), 0);
+			// if (WEXITSTATUS(cmd->proc.exit_status))
+				// printf("process %i exited with status %i \n", pid, WEXITSTATUS(cmd->proc.exit_status));
+			cmd->proc.exited = true;
 
 	}
 	free_str(&binpath);
