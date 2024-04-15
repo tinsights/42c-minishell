@@ -50,9 +50,11 @@ typedef struct s_cmd
 	t_proc	proc;
 	int		num_words;
 	int		num_redirects;
+	int		num_heredocs;
 	char	*line;
 	char	**words;
 	t_redir	*redirs;
+	t_list	*cmd_env_lst;
 }	t_cmd;
 
 typedef struct s_env
@@ -65,14 +67,13 @@ typedef struct s_env
 typedef struct s_params
 {
 	int			num_cmds;
+	int			total_heredocs;
 	char		*line;
 	char		**paths;
 	bool		interactive; // default true
 
 	t_list		*cmd_list;
 	t_list		*env_list;
-	t_list		*mem_lst;
-	t_list		*child_lst;
 }	t_params;
 
 void	*ft_realloc(void *ptr, size_t old_size, size_t size);
@@ -94,33 +95,6 @@ void run_command(t_params *params, t_list *cmd_lst);
 
 
 
-
-void *ms_calloc(size_t nmemb, size_t size, t_list **mem_lst)
-{
-	void *result = ft_calloc(nmemb, size);
-	// error management?
-	t_list *node = ft_calloc(1, sizeof(t_list));
-	node->content = result;
-	ft_lstadd_back(mem_lst, node);
-	return (result);
-}
-
-void safe_free(void **ptr)
-{
-	if (*ptr)
-		free (*ptr);
-	*ptr = NULL;
-}
-
-void free_env(void *ptr)
-{
-	t_env *var = (t_env *) ptr;
-
-	safe_free((void **) &(var->key));
-	safe_free((void **) &(var->value));
-	safe_free((void **) &(var));
-}
-
 void free_cmds(void *ptr)
 {
 	t_cmd *cmd = (t_cmd *) ptr;
@@ -132,7 +106,12 @@ void free_cmds(void *ptr)
 
 	t_proc proc = cmd->proc;
 
-	printf("%i for command %s exited with status %i\n", proc.pid, words[0], WEXITSTATUS(proc.exit_status));
+	if (WIFEXITED(proc.exit_status))
+	{
+		// printf("%i for command %s exited with status %i\n", proc.pid, words[0], WEXITSTATUS(proc.exit_status));
+	}
+	else
+		printf("PROCESS %i command %s did not exit\n", proc.pid, words[0]);
 	int i = 0;
 	while (i < cmd->num_words)
 	{
@@ -178,6 +157,15 @@ int main(int ac, char **av, char **envp)
 	/* -------------------------------------------------------------------------- */
 	/*                         Process ENVP, create PATHS                         */
 	/* -------------------------------------------------------------------------- */
+	/**
+	 * TODO:
+	 * paths should be ascertained 
+	 * right before cmd execution.
+	 * 
+	 * currently, editing PATHS via unset / export
+	 * will not change PATHS searched durin cmd execution.
+	 * 
+	*/
 	params.paths = find_paths(envp);
 	i = 0;
 	while (envp && envp[i])
@@ -228,15 +216,12 @@ int main(int ac, char **av, char **envp)
 			 * with output and input redirects
 			 * TODO: parse heredoc?
 			*/
-			// TODO: handle heredocs
 			create_cmds(&params);
 
-			create_words(&params);
-
-
+			// create_words(&params);
 
 			/**
-			 * TODO: Process heredoc
+			 * DOING: Process heredoc
 			 * set heredoc_processing = true;
 			 * 
 			 * if sigint recvd,
@@ -245,13 +230,16 @@ int main(int ac, char **av, char **envp)
 			 * once done, set hereodc_proc = false
 			*/
 
+			printf("there are a total of %i heredocs\n", params.total_heredocs);
+
+
 			/**
 			 * TODO: check if resolved to empty string(s)?
 			*/
 
 
 			/**
-			 * DOING: Run each child command
+			 * DONE: Run each child command
 			 * 1) for each cmd in cmd_lst
 			 * 2) open a pipe
 			 * 3) fork
@@ -267,9 +255,7 @@ int main(int ac, char **av, char **envp)
 			run_command(&params, params.cmd_list);
 			// set interactive to true
 			params.interactive = true;
-			// check all children return status
 			ft_lstclear(&params.cmd_list, free_cmds);
-			// printf("ACHAK!\n");
 		}
 	}
 
@@ -306,13 +292,14 @@ void run_command(t_params *params, t_list *cmd_lst)
 
 	if (pid == 0)
 	{
+		// printf("hello from %i\n", getpid());
+		printf("\t\t %p %s\n", argv, argv[0]);
 		bool redirect_success = true;
-		char *binpath = check_valid_cmd(params->paths, argv[0]);
 
 		if (cmd_lst->next)
 		{
 			close(p_fd[0]);
-			printf("executing piped %s\n", argv[0]);
+			// printf("executing piped %s\n", argv[0]);
 			dup2(p_fd[1], STDOUT_FILENO);
 			close(p_fd[1]);
 		}
@@ -371,20 +358,29 @@ void run_command(t_params *params, t_list *cmd_lst)
 				redir_ctr++;
 			}
 		}
-		if (binpath && redirect_success)
+		if (argv[0])
 		{
-			execve(binpath, argv, __environ);	// do we need to pass in envp?
-			perror("");
-			free_str(&binpath);
-			exit(1);
+			char *binpath = check_valid_cmd(params->paths, argv[0]);
+
+			if (binpath && redirect_success)
+			{
+				printf("\t\t EXECVE  %s\n", binpath);
+				execve(binpath, argv, __environ);	// do we need to pass in envp?
+				perror("");
+			}
+			else if (redirect_success)
+			{
+				ft_putstr_fd(argv[0], STDERR_FILENO);
+				ft_putstr_fd(": command not found\n", STDERR_FILENO);
+			}
+			else
+				perror("");
 		}
-		else if (redirect_success)
-		{
-			ft_putstr_fd(argv[0], STDERR_FILENO);
-			ft_putstr_fd(": command not found\n", STDERR_FILENO);
-			free_str(&binpath);
-			exit(1);
-		}
+		free_str(&binpath);
+		// free all memory
+		// use builtin exit
+		printf("\t\t %i EXITING\n", getpid());
+		exit(1);
 	}
 	else
 	{
@@ -410,10 +406,10 @@ void run_command(t_params *params, t_list *cmd_lst)
 		}
 
 
-			// printf("hello from parent of %i\n", pid);
+			printf("hello from parent of %i\n", pid);
 			waitpid(pid, &(cmd->proc.exit_status), 0);
-			// if (WEXITSTATUS(cmd->proc.exit_status))
-				// printf("process %i exited with status %i \n", pid, WEXITSTATUS(cmd->proc.exit_status));
+			if (WEXITSTATUS(cmd->proc.exit_status))
+				printf("process %i exited with status %i \n", pid, WEXITSTATUS(cmd->proc.exit_status));
 			cmd->proc.exited = true;
 
 	}
@@ -427,14 +423,14 @@ char	*check_valid_cmd(char **paths, char *cmd)
 	char	*cmdpath;
 	char	*binpath;
 
-	if (!cmd)
+	if (!cmd || !cmd[0])
 		return (NULL);
 	cmdpath = ft_strjoin("/", cmd);
 	j = 0;
 	while (paths && paths[j])
 	{
 		binpath = ft_strjoin(paths[j], cmdpath);
-		if (!access(binpath, X_OK))
+		if (!access(binpath, F_OK | X_OK))
 			break ;
 		free(binpath);
 		j++;
@@ -517,17 +513,6 @@ void	recurse_pipe(char **paths, t_list *cmd_lst)
 }
 
 
-bool valid_env_char(char c)
-{
-	return (ft_isalnum(c) || c == '_');
-}
-
-
-bool valid_env_str(char *line)
-{
-	return (*line == '$' && (line[1] == '?' || line[1] == '_' || ft_isalpha(line[1])));
-}
-
 char *get_env_key(char *line)
 {
 	char *result;
@@ -566,7 +551,7 @@ char *parse_env_var(t_list *env_lst, char *var)
 	return (NULL);
 }
 
-int		len_to_alloc_2(char **line_ptr, t_list *env_lst, char qstart)
+int		len_to_alloc(char **line_ptr, t_list *env_lst, char qstart)
 {
 	if (!qstart && (!**line_ptr || is_redirect(*line_ptr) || is_space(**line_ptr)))
 		return (0);
@@ -582,12 +567,12 @@ int		len_to_alloc_2(char **line_ptr, t_list *env_lst, char qstart)
 	else if (!qstart && **line_ptr == '\'')
 	{
 		(*line_ptr)++;
-		return (len_to_alloc_2(line_ptr, env_lst, '\''));
+		return (len_to_alloc(line_ptr, env_lst, '\''));
 	}
 	else if (!qstart && **line_ptr == '"')
 	{
 		(*line_ptr)++;
-		return (len_to_alloc_2(line_ptr, env_lst, '"'));
+		return (len_to_alloc(line_ptr, env_lst, '"'));
 
 	}
 	else if (qstart != '\'' && valid_env_str(*line_ptr))
@@ -607,12 +592,12 @@ int		len_to_alloc_2(char **line_ptr, t_list *env_lst, char qstart)
 		*line_ptr += key_len;
 		free_str(&var);
 		// printf("\t\t env var len to alloc: %i\n", len);
-		return (len + len_to_alloc_2(line_ptr, env_lst, qstart));
+		return (len + len_to_alloc(line_ptr, env_lst, qstart));
 	}
 	else
 	{	
 		(*line_ptr)++;
-		return (1 + len_to_alloc_2(line_ptr, env_lst, qstart));
+		return (1 + len_to_alloc(line_ptr, env_lst, qstart));
 	}
 }
 
@@ -677,44 +662,7 @@ void	word_copy(char **line_ptr, t_list *env_lst, char qstart, char *word)
 	}
 }
 
-void copy_bytes(t_list *cmd_lst, t_list *env_lst)
-{
-	t_cmd *cmd = (t_cmd *) cmd_lst->content;
-	char *line = cmd->line;
-	// printf("line : %s\n", cmd->line);
-	// int i = 0;
-
-	int curr_word = 0;
-	int curr_redirect = 0;
-	while (*line)
-	{
-		if (*line && is_space(*line))
-		{
-			line++;
-			continue ;
-		}
-		if (is_redirect(line))
-		{
-
-			line += is_redirect(line);
-			while (is_space(*line))
-				line++;
-
-			t_redir redirect = cmd->redirs[curr_redirect];
-			word_copy(&line, env_lst, 0, redirect.file);
-			curr_redirect++;
-		}
-		else
-		{
-			char *word = cmd->words[curr_word];
-			word_copy(&line, env_lst, 0, word);
-			curr_word++;
-		}
-		// printf("i: %i. line: %s\n", i,  line + i);
-	}
-}
-
-void count_bytes(t_list *cmd_lst, t_list *env_lst)
+void parse_cmd(t_list *cmd_lst, t_list *env_lst)
 {
 	t_cmd *cmd = (t_cmd *) cmd_lst->content;
 	char *line = cmd->line;
@@ -736,13 +684,15 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 			t_redir_type type = get_redir_type(line);
 
 
+			if (type == heredoc)
+				cmd->num_heredocs++;
 			// skip and process redirect
 			// since we have verified that it isn't final
 			line += is_redirect(line);
 			while (is_space(*line))
 				line++;
 			char *copy = line;
-			int len = len_to_alloc_2(&line, env_lst, 0);
+			int len = len_to_alloc(&line, env_lst, 0);
 			// printf("allocating pointer of len %i\n", len);
 			// printf("line is crrently %s\n", line);
 			redirs = ft_realloc(redirs, cmd->num_redirects * sizeof(t_redir), (cmd->num_redirects + 1) * sizeof(t_redir));
@@ -758,7 +708,7 @@ void count_bytes(t_list *cmd_lst, t_list *env_lst)
 		else
 		{
 			char *copy = line;
-			int len = len_to_alloc_2(&line, env_lst, 0);
+			int len = len_to_alloc(&line, env_lst, 0);
 			if (len)
 			{
 				// char *word = ft_calloc(len, sizeof(char));
@@ -796,52 +746,14 @@ void	create_words(t_params *params)
 
 	while (cmd_lst)
 	{
-		count_bytes(cmd_lst, env_lst);
+		parse_cmd(cmd_lst, env_lst); // cmd should point to env lst
 		// copy_bytes(cmd_lst, env_lst);
+		params->total_heredocs += ((t_cmd *) cmd_lst->content)->num_heredocs;
 		cmd_lst = cmd_lst->next;
 	}
 }
 
-t_redir_type get_redir_type(char *line)
-{
-	int i = 0;
 
-	if (!ft_strncmp(line, ">>", 2))
-		return out_append;
-	else if (!ft_strncmp(line, "<<", 2))
-		return heredoc;
-	else if (!ft_strncmp(line, ">", 1))
-		return out_trunc;
-	else if (!ft_strncmp(line, "<", 1))
-		return input;
-	else
-		return (-1);
-}
-
-bool is_space(char c)
-{
-	return (c == ' ' || c == '\t' || c == '\n');
-}
-
-bool is_single_pipe(char *line)
-{
-	return (line && line[0] == '|' && line[1] != '|');
-}
-
-int is_redirect(char *line)
-{
-	if (!ft_strncmp(line, ">>", 2) || !ft_strncmp(line, "<<", 2))
-		return (2);
-	else if (!ft_strncmp(line, ">", 1) || !ft_strncmp(line, "<", 1))
-		return (1);
-	else
-		return (0);
-}
-
-bool is_meta(char *line)
-{
-	return (is_redirect(line) || !ft_strncmp(line, "|", 1));
-}
 
 
 void create_cmds(t_params *params)
@@ -851,11 +763,11 @@ void create_cmds(t_params *params)
 	char *start;
 
 	if (!params)
-		return ; // zero? or neg?
+		return ;
 	line = params->line;
 
 	if (!line)
-		return ; // zero? or neg?
+		return ;
 
 	total_len = 0;
 	start = line;
@@ -878,6 +790,7 @@ void create_cmds(t_params *params)
 			total_len += len + 1;
 
 			node->content = cmd;
+			parse_cmd(node, params->env_list);
 			ft_lstadd_back(&params->cmd_list, node);
 		}
 
@@ -894,6 +807,7 @@ void create_cmds(t_params *params)
 			total_len += len + 1;
 
 			node->content = cmd;
+			parse_cmd(node, params->env_list);
 			ft_lstadd_back(&params->cmd_list, node);
 		}
 
@@ -920,7 +834,7 @@ int	count_cmds(t_params *params)
 	while (is_space(*line))
 		line++;
 	if (!line[0])
-		return (0);
+		return (0); // zero? or neg?
 
 	cmd_count = 1;
 	start = line;
@@ -1074,8 +988,7 @@ void	*ft_realloc(void *ptr, size_t old_size, size_t size)
 
 	if (!size)
 	{
-		if (ptr)
-			free (ptr);
+		safe_free((void **) ptr);
 		return (NULL);
 	}
 	if (!ptr)
@@ -1088,56 +1001,4 @@ void	*ft_realloc(void *ptr, size_t old_size, size_t size)
 	ft_memmove(res, ptr, maxcpy);
 	free(ptr);
 	return (res);
-}
-
-int		len_to_alloc(char *line, int *ptr, t_list *env_lst, char qstart)
-{
-
-	if (!qstart && (!*line || is_redirect(line) || is_space(*line)))
-		return (0);
-
-	if (qstart && *line == qstart)
-	{
-		*ptr += 2;	
-		line++;
-		qstart = 0;
-	}
-
-	if (!qstart && (!*line || is_redirect(line) || is_space(*line)))
-		return (1);
-	else if (!qstart && *line == '\'')
-	{
-		line++;
-		return (len_to_alloc(line, ptr, env_lst, '\''));
-	}
-	else if (!qstart && *line == '"')
-	{
-		line++;
-		return (len_to_alloc(line, ptr, env_lst, '"'));
-
-	}
-	else if (qstart != '\'' && valid_env_str(line))
-	{
-		char *var = get_env_key(line);
-		int	key_len = 0;
-		int len = 0;
-
-		// printf("\t\t VAR: %s\n", var);
-		char *value = parse_env_var(env_lst, var);
-		if (value)
-		{
-			// printf("\t\t VALUE: %s\n", value);
-			len = ft_strlen(value);
-		}
-		key_len = ft_strlen(var) + 1;
-		line += key_len;
-		*ptr += key_len;
-		free_str(&var);
-		// printf("\t\t env var len to alloc: %i\n", len);
-		return (len + len_to_alloc(line, ptr, env_lst, qstart));
-	}
-	else
-	{	(*ptr)++;
-		return (1 + len_to_alloc(line + 1, ptr, env_lst, qstart));
-	}
 }
