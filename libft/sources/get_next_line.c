@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #include "get_next_line.h"
+#include "libft.h"
 
 int	init(char **store, char **buff, char **result)
 {
@@ -96,7 +97,7 @@ char	*get_next_line(int fd)
 
 	if (fd < 0 || !init(&store, &buff, &result))
 	{
-		free(store);
+		ft_free((void **) store);
 		return (NULL);
 	}
 	if (gnl_strlen(store) > 0)

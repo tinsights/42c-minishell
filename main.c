@@ -51,6 +51,9 @@ typedef struct s_cmd
 	int		num_words;
 	int		num_redirects;
 	int		num_heredocs;
+
+	int		io[2];
+
 	char	*line;
 	char	**words;
 	t_redir	*redirs;
@@ -71,6 +74,9 @@ typedef struct s_params
 	char		*line;
 	char		**paths;
 	bool		interactive; // default true
+
+
+	int			default_io[2];
 
 	t_list		*cmd_list;
 	t_list		*env_list;
@@ -155,7 +161,12 @@ int main(int ac, char **av, char **envp)
 	t_params	params;
 	int 		i;
 	ft_memset(&params, 0, sizeof(t_params));
+	
+	params.default_io[0] = dup(STDIN_FILENO);
+	params.default_io[1] = dup(STDOUT_FILENO);
 
+	if (!isatty(params.default_io[1]))
+		dup2(open("/dev/tty", O_WRONLY), STDOUT_FILENO);
 
 	/* -------------------------------------------------------------------------- */
 	/*                         Process ENVP, create PATHS                         */
@@ -199,6 +210,7 @@ int main(int ac, char **av, char **envp)
 	{
 		free_str(&(params.line));
 		params.line = readline("$> ");
+		// params.line = get_next_line(params.default_io[0]);
 		if (params.line && *params.line)
 		{
 			add_history(params.line);
@@ -233,7 +245,7 @@ int main(int ac, char **av, char **envp)
 			 * once done, set hereodc_proc = false
 			*/
 
-			printf("there are a total of %i heredocs\n", params.total_heredocs);
+			// printf("there are a total of %i heredocs\n", params.total_heredocs);
 
 
 			/**
@@ -276,10 +288,6 @@ void run_command(t_params *params, t_list *cmd_lst)
 	char **argv = cmd->words;
 	char *binpath = NULL;
 
-	static int default_stdin;
-
-	if (!default_stdin)
-		default_stdin = dup(STDIN_FILENO);
 	int p_fd[2];
 
 	if (cmd_lst->next)
@@ -296,7 +304,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 	if (pid == 0)
 	{
 		// printf("hello from %i\n", getpid());
-		printf("\t\t %p %s\n", argv, argv[0]);
+		// printf("\t\t %p %s\n", argv, argv[0]);
 		bool redirect_success = true;
 
 		if (cmd_lst->next)
@@ -306,6 +314,9 @@ void run_command(t_params *params, t_list *cmd_lst)
 			dup2(p_fd[1], STDOUT_FILENO);
 			close(p_fd[1]);
 		}
+		else
+			dup2(params->default_io[1], STDOUT_FILENO);
+
 
 		// process redirects
 		if (cmd->num_redirects > 0 && cmd->redirs)
@@ -358,6 +369,27 @@ void run_command(t_params *params, t_list *cmd_lst)
 						redirect_success = false;
 					}
 				}
+				else if (redir.type == heredoc)
+				{
+					int heredoc_pipe[2];
+					pipe(heredoc_pipe);
+					dup2(heredoc_pipe[0], STDIN_FILENO);
+					close(heredoc_pipe[0]);
+					char *delim = redir.file;
+					int len = ft_strlen(delim);
+					char *line = get_next_line(params->default_io[0]);
+					while (line)
+					{
+						if (!ft_strncmp(line, delim, len))
+							break ;
+						write(heredoc_pipe[1], line, ft_strlen(line));
+						free_str(&line);
+						line = get_next_line(params->default_io[0]);
+					}
+					free_str(&line);
+					get_next_line(-1);
+					close(heredoc_pipe[1]);
+				}
 				redir_ctr++;
 			}
 		}
@@ -367,7 +399,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 
 			if (binpath && redirect_success)
 			{
-				printf("\t\t EXECVE  %s\n", binpath);
+				// printf("\t\t EXECVE  %s\n", binpath);
 				execve(binpath, argv, __environ);	// do we need to pass in envp?
 				perror("");
 			}
@@ -382,7 +414,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 		free_str(&binpath);
 		// free all memory
 		// use builtin exit
-		printf("\t\t %i EXITING\n", getpid());
+		// printf("\t\t %i EXITING\n", getpid());
 		exit(1);
 	}
 	else
@@ -390,6 +422,15 @@ void run_command(t_params *params, t_list *cmd_lst)
 		//parent
 
 		cmd->proc.pid = pid;
+
+		if (cmd->num_heredocs > 0)
+		{
+			// ft_putstr_fd("waiting for heredoc\n", STDERR_FILENO);
+			waitpid(pid, &(cmd->proc.exit_status), 0);
+			// ft_putstr_fd("heredoc completed\n", STDERR_FILENO);
+
+		}
+
 		if (cmd_lst->next)
 		{
 			close(p_fd[1]);
@@ -403,16 +444,14 @@ void run_command(t_params *params, t_list *cmd_lst)
 			// final command!
 
 			// return stdin to default
-			dup2(default_stdin, STDIN_FILENO);
-
+			dup2(params->default_io[0], STDIN_FILENO);
 
 		}
-
-
-			printf("hello from parent of %i\n", pid);
-			waitpid(pid, &(cmd->proc.exit_status), 0);
+			// printf("hello from parent of %i\n", pid);
 			if (WEXITSTATUS(cmd->proc.exit_status))
 				printf("process %i exited with status %i \n", pid, WEXITSTATUS(cmd->proc.exit_status));
+			else
+				waitpid(pid, &(cmd->proc.exit_status), 0);
 			cmd->proc.exited = true;
 
 	}
