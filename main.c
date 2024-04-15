@@ -91,7 +91,10 @@ bool 	is_space(char c);
 int		is_redirect(char *line);
 t_redir_type get_redir_type(char *line);
 void	recurse_pipe(char **paths, t_list *cmd_lst);
-void run_command(t_params *params, t_list *cmd_lst);
+void 	run_command(t_params *params, t_list *cmd_lst);
+void 	free_env(void *ptr);
+bool valid_env_str(char *line);	
+bool valid_env_char(char c);
 
 
 
@@ -1002,3 +1005,86 @@ void	*ft_realloc(void *ptr, size_t old_size, size_t size)
 	free(ptr);
 	return (res);
 }
+
+/* -------------------------------------------------------------------------- */
+/*                                    UTILS                                   */
+/* -------------------------------------------------------------------------- */
+
+void *ms_calloc(size_t nmemb, size_t size, t_list **mem_lst)
+{
+	void *result = ft_calloc(nmemb, size);
+	// error management?
+	t_list *node = ft_calloc(1, sizeof(t_list));
+	node->content = result;
+	ft_lstadd_back(mem_lst, node);
+	return (result);
+}
+
+void safe_free(void **ptr)
+{
+	if (*ptr)
+		free (*ptr);
+	*ptr = NULL;
+}
+
+void free_env(void *ptr)
+{
+	t_env *var = (t_env *) ptr;
+
+	safe_free((void **) &(var->key));
+	safe_free((void **) &(var->value));
+	safe_free((void **) &(var));
+}
+
+bool valid_env_char(char c)
+{
+	return (ft_isalnum(c) || c == '_');
+}
+
+
+bool valid_env_str(char *line)
+{
+	return (*line == '$' && (line[1] == '?' || line[1] == '_' || ft_isalpha(line[1])));
+}
+
+t_redir_type get_redir_type(char *line)
+{
+	int i = 0;
+
+	if (!ft_strncmp(line, ">>", 2))
+		return out_append;
+	else if (!ft_strncmp(line, "<<", 2))
+		return heredoc;
+	else if (!ft_strncmp(line, ">", 1))
+		return out_trunc;
+	else if (!ft_strncmp(line, "<", 1))
+		return input;
+	else
+		return (-1);
+}
+
+bool is_space(char c)
+{
+	return (c == ' ' || c == '\t' || c == '\n');
+}
+
+bool is_single_pipe(char *line)
+{
+	return (line && line[0] == '|' && line[1] != '|');
+}
+
+int is_redirect(char *line)
+{
+	if (!ft_strncmp(line, ">>", 2) || !ft_strncmp(line, "<<", 2))
+		return (2);
+	else if (!ft_strncmp(line, ">", 1) || !ft_strncmp(line, "<", 1))
+		return (1);
+	else
+		return (0);
+}
+
+bool is_meta(char *line)
+{
+	return (is_redirect(line) || !ft_strncmp(line, "|", 1));
+}
+
