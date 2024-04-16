@@ -1,6 +1,6 @@
 *.o
 *.a
 minishell
-lab/
+ms_lab/
 minishell
 outfile

@@ -34,3 +34,21 @@ void copy_bytes(t_list *cmd_lst, t_list *env_lst)
 		// printf("i: %i. line: %s\n", i,  line + i);
 	}
 }
+
+char *parse_env_var(t_list *env_lst, char *var)
+{
+
+	while (env_lst)
+	{
+		t_env *env_node = env_lst->content;
+
+		if (!ft_strncmp(var, env_node->key, ft_strlen(var)))
+		{
+			// printf("%s\n", env_node->value);
+			return (env_node->value);
+		}
+
+		env_lst = env_lst->next;
+	}
+	return (NULL);
+}

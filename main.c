@@ -181,32 +181,32 @@ int main(int ac, char **av, char **envp)
 	 * 
 	*/
 	params.paths = find_paths(envp);
-	i = 0;
-	while (envp && envp[i])
-	{
-		char *eqsign = ft_strchr(envp[i], '=');
-		unsigned int start = eqsign - envp[i];
-		if (eqsign)
-		{
-			t_env	*node = ft_calloc(1, sizeof(t_env));
-			t_list		*list = ft_calloc(1, sizeof(t_list));
+	// i = 0;
+	// while (envp && envp[i])
+	// {
+	// 	char *eqsign = ft_strchr(envp[i], '=');
+	// 	unsigned int start = eqsign - envp[i];
+	// 	if (eqsign)
+	// 	{
+	// 		t_env	*node = ft_calloc(1, sizeof(t_env));
+	// 		t_list		*list = ft_calloc(1, sizeof(t_list));
 
-			node->key = ft_substr(envp[i], 0, start);
-			node->value = ft_substr(envp[i], start + 1, ft_strlen(envp[i]));
+	// 		node->key = ft_substr(envp[i], 0, start);
+	// 		node->value = ft_substr(envp[i], start + 1, ft_strlen(envp[i]));
 
-			list->content = node;
-			ft_lstadd_back(&params.env_list, list);
+	// 		list->content = node;
+	// 		ft_lstadd_back(&params.env_list, list);
 
-		}
-		i++;
-	}
+	// 	}
+	// 	i++;
+	// }
 
 
 	/* -------------------------------------------------------------------------- */
 	/*                            Read line with prompt                           */
 	/* -------------------------------------------------------------------------- */
 	static unsigned int totallen;
-	while (i-- / 10)
+	while (true)
 	{
 		free_str(&(params.line));
 		params.line = readline("$> ");
@@ -274,11 +274,11 @@ int main(int ac, char **av, char **envp)
 		}
 	}
 
-	ft_lstclear(&params.env_list, free_env);
-	i = 0;
-	while (params.paths[i])
-		safe_free((void **) (params.paths + i++));
-	safe_free((void **) &(params.paths));
+	// ft_lstclear(&params.env_list, free_env);
+	// i = 0;
+	// while (params.paths[i])
+	// 	safe_free((void **) (params.paths + i++));
+	// safe_free((void **) &(params.paths));
 	free_str(&(params.line));
 }
 
@@ -575,24 +575,6 @@ char *get_env_key(char *line)
 	return (NULL);
 }
 
-char *parse_env_var(t_list *env_lst, char *var)
-{
-
-	while (env_lst)
-	{
-		t_env *env_node = env_lst->content;
-
-		if (!ft_strncmp(var, env_node->key, ft_strlen(var)))
-		{
-			// printf("%s\n", env_node->value);
-			return (env_node->value);
-		}
-
-		env_lst = env_lst->next;
-	}
-	return (NULL);
-}
-
 int		len_to_alloc(char **line_ptr, t_list *env_lst, char qstart)
 {
 	if (!qstart && (!**line_ptr || is_redirect(*line_ptr) || is_space(**line_ptr)))
@@ -624,7 +606,7 @@ int		len_to_alloc(char **line_ptr, t_list *env_lst, char qstart)
 		int len = 0;
 
 		// printf("\t\t VAR: %s\n", var);
-		char *value = parse_env_var(env_lst, var);
+		char *value = getenv(var);
 		if (value)
 		{
 			// printf("\t\t VALUE: %s\n", value);
@@ -681,7 +663,7 @@ void	word_copy(char **line_ptr, t_list *env_lst, char qstart, char *word)
 		int len = 0;
 
 		// printf("\t\t VAR: %s\n", var);
-		char *value = parse_env_var(env_lst, var);
+		char *value = getenv(var);
 		if (value)
 		{
 			// printf("\t\t VALUE: %s\n", value);
