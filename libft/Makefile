@@ -5,7 +5,7 @@ SOURCES = $(wildcard $(SRC_DIR)/*.c)
 
 OBJECTS = $(patsubst $(SRC_DIR)/%.c,$(SRC_DIR)/%.o,$(SOURCES))
 
-CFLAGS = -Wall -Wextra -Werror -I./includes
+CFLAGS = -g -Wall -Wextra -Werror -I./includes
 
 all: $(NAME)
 

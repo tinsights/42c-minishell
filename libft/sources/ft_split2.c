@@ -15,7 +15,7 @@
 int		ft_strlen(char *str);
 int		count_separators2(char *str, char *charset);
 int		char_in_charset(char c, char *charset);
-char	*ft_strdup(char *src, int i);
+char	*split_strdup(char *src, int i);
 
 /*
 #include <stdio.h>
@@ -59,7 +59,7 @@ char	**ft_split2(char *str, char *charset)
 		j = 1;
 		while (str[j] && !char_in_charset(str[j], charset))
 			j++;
-		result[i] = ft_strdup(str, j);
+		result[i] = split_strdup(str, j);
 		i++;
 		str += j;
 	}
@@ -85,7 +85,7 @@ int	count_separators2(char *str, char *charset)
 	return (count);
 }
 
-char	*ft_strdup(char *src, int i)
+char	*split_strdup(char *src, int i)
 {
 	int		idx;
 	char	*copy;

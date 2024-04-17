@@ -23,8 +23,6 @@
 
 #include <fcntl.h> // open
 
-
-extern char **environ;
 typedef enum e_redir_type
 {
 	input,
@@ -181,28 +179,19 @@ int main(int ac, char **av, char **envp)
 	 * 
 	*/
 
-	// replicate environ in heap memory, so we can safely manipulate it with our functions
-	// create a new char **environ
-	// copy each string from environ to new environ
-	// set environ to new environ
-
 	i = 0;
 	while (envp[i])
-	{
-		i++;
-	}
-	environ = ft_calloc((i + 2), sizeof(char **));
+		i++;  // find the end of __
 
+    __environ = (char **) ft_calloc(i + 1, sizeof(char *));
 	i = 0;
-	while(envp[i])
+
+	while (envp[i])
 	{
-		printf("%s\n", envp[i]);
-		fflush(stdout);
-		environ[i] = ft_strdup(envp[i]);
+		// printf("xx %s\n", envp[i]);
+    	__environ[i] = ft_strdup(envp[i]);
 		i++;
 	}
-	printf("xx done envp\n");
-	fflush(stdout);
 
 	/* -------------------------------------------------------------------------- */
 	/*                            Read line with prompt                           */
@@ -438,7 +427,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 			if (binpath && redirect_success)
 			{
 				// printf("\t\t EXECVE  %s\n", binpath);
-				execve(binpath, argv, environ);	// do we need to pass in envp?
+				execve(binpath, argv, __environ);	// do we need to pass in envp?
 				perror("");
 			}
 			else if (redirect_success)
@@ -1129,6 +1118,7 @@ bool is_meta(char *line)
 
 void set_env(char *var)
 {
+	printf("xx %s\n", var);
     char *key = ft_strdup(var);
     char *loc = ft_strchr(key, '=');
     if (loc) *loc = '\0';  // split the key and value
@@ -1138,11 +1128,10 @@ void set_env(char *var)
     }
 
     int i;
-    for (i = 0; environ[i] != NULL; i++);  // find the end of environ
+    for (i = 0; __environ[i] != NULL; i++);  // find the end of __
 
-    environ = (char **)ft_realloc(environ, sizeof(char *) * (i + 2), sizeof(char *) * (i + 3));
-    environ[i] = ft_strdup(var);
-    environ[i + 1] = NULL;
+    __environ = (char **)ft_realloc(__environ, sizeof(char *) * (i + 1), sizeof(char *) * (i + 2));
+    __environ[i] = ft_strdup(var);
 
     free_str(&key);
 }
@@ -1172,9 +1161,9 @@ void ms_export(char *arg)
 void print_env(void)
 {
     int i = 0;
-    while (environ[i])
+    while (__environ[i])
     {
-        printf("%s\n", environ[i]);
+        printf("%s\n", __environ[i]);
         i++;
     }
 }
