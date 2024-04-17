@@ -23,6 +23,8 @@
 
 #include <fcntl.h> // open
 
+
+extern char **environ;
 typedef enum e_redir_type
 {
 	input,
@@ -60,12 +62,6 @@ typedef struct s_cmd
 	t_list	*cmd_env_lst;
 }	t_cmd;
 
-typedef struct s_env
-{
-	char				*key;
-	char				*value;
-} t_env;
-
 
 typedef struct s_params
 {
@@ -79,7 +75,6 @@ typedef struct s_params
 	int			default_io[2];
 
 	t_list		*cmd_list;
-	t_list		*env_list;
 }	t_params;
 
 void	*ft_realloc(void *ptr, size_t old_size, size_t size);
@@ -99,8 +94,10 @@ t_redir_type get_redir_type(char *line);
 void	recurse_pipe(char **paths, t_list *cmd_lst);
 void 	run_command(t_params *params, t_list *cmd_lst);
 void 	free_env(void *ptr);
-bool valid_env_str(char *line);	
-bool valid_env_char(char c);
+bool 	valid_env_str(char *line);	
+bool 	valid_env_char(char c);
+void 	print_env(void);
+void 	ms_export(char *arg);
 
 
 
@@ -156,6 +153,9 @@ void free_cmds(void *ptr)
 // display new promt
 
 
+
+#include <string.h>
+
 int main(int ac, char **av, char **envp)
 {
 	t_params	params;
@@ -181,26 +181,28 @@ int main(int ac, char **av, char **envp)
 	 * 
 	*/
 
-	// i = 0;
-	// while (envp && envp[i])
-	// {
-	// 	char *eqsign = ft_strchr(envp[i], '=');
-	// 	unsigned int start = eqsign - envp[i];
-	// 	if (eqsign)
-	// 	{
-	// 		t_env	*node = ft_calloc(1, sizeof(t_env));
-	// 		t_list		*list = ft_calloc(1, sizeof(t_list));
+	// replicate environ in heap memory, so we can safely manipulate it with our functions
+	// create a new char **environ
+	// copy each string from environ to new environ
+	// set environ to new environ
 
-	// 		node->key = ft_substr(envp[i], 0, start);
-	// 		node->value = ft_substr(envp[i], start + 1, ft_strlen(envp[i]));
+	i = 0;
+	while (envp[i])
+	{
+		i++;
+	}
+	environ = ft_calloc((i + 2), sizeof(char **));
 
-	// 		list->content = node;
-	// 		ft_lstadd_back(&params.env_list, list);
-
-	// 	}
-	// 	i++;
-	// }
-
+	i = 0;
+	while(envp[i])
+	{
+		printf("%s\n", envp[i]);
+		fflush(stdout);
+		environ[i] = ft_strdup(envp[i]);
+		i++;
+	}
+	printf("xx done envp\n");
+	fflush(stdout);
 
 	/* -------------------------------------------------------------------------- */
 	/*                            Read line with prompt                           */
@@ -282,6 +284,39 @@ int main(int ac, char **av, char **envp)
 	free_str(&(params.line));
 }
 
+bool is_builtin(char **argv)
+{
+	if (!argv)
+		return false;
+	
+	return (!ft_strncmp(argv[0], "export", 7) || !ft_strncmp(argv[0], "env", 4) || !ft_strncmp(argv[0], "exit", 5));
+}
+
+void run_builtin(t_params *params, t_list *cmd_lst)
+{
+	t_cmd *cmd = cmd_lst->content;
+	char **argv = cmd->words;
+
+	if (!ft_strncmp(argv[0], "export", 7))
+	{
+		int i = 1;
+		while (argv[i])
+		{
+			printf("xx\n");
+			ms_export(argv[i]);
+			i++;
+		}
+	}
+	else if (!ft_strncmp(argv[0], "env", 4))
+	{
+		print_env();
+	}
+	else if (!ft_strncmp(argv[0], "exit", 5))
+	{
+		exit(0);
+	}
+}
+
 void run_command(t_params *params, t_list *cmd_lst)
 {
 	t_cmd *cmd = cmd_lst->content;
@@ -292,8 +327,11 @@ void run_command(t_params *params, t_list *cmd_lst)
 
 	if (cmd_lst->next)
 		pipe(p_fd);	// error checking??
-
-	// if not single builtin, fork
+	else if (is_builtin(argv))
+	{
+		run_builtin(params, cmd_lst);
+		return ;
+	}
 	int pid = fork();
 
 	// else, run single builtin?
@@ -400,7 +438,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 			if (binpath && redirect_success)
 			{
 				// printf("\t\t EXECVE  %s\n", binpath);
-				execve(binpath, argv, __environ);	// do we need to pass in envp?
+				execve(binpath, argv, environ);	// do we need to pass in envp?
 				perror("");
 			}
 			else if (redirect_success)
@@ -422,6 +460,8 @@ void run_command(t_params *params, t_list *cmd_lst)
 		//parent
 
 		cmd->proc.pid = pid;
+
+		// eventually done at parent level
 
 		if (cmd->num_heredocs > 0)
 		{
@@ -575,7 +615,7 @@ char *get_env_key(char *line)
 	return (NULL);
 }
 
-int		len_to_alloc(char **line_ptr, t_list *env_lst, char qstart)
+int		len_to_alloc(char **line_ptr, char qstart)
 {
 	if (!qstart && (!**line_ptr || is_redirect(*line_ptr) || is_space(**line_ptr)))
 		return (0);
@@ -591,12 +631,12 @@ int		len_to_alloc(char **line_ptr, t_list *env_lst, char qstart)
 	else if (!qstart && **line_ptr == '\'')
 	{
 		(*line_ptr)++;
-		return (len_to_alloc(line_ptr, env_lst, '\''));
+		return (len_to_alloc(line_ptr, '\''));
 	}
 	else if (!qstart && **line_ptr == '"')
 	{
 		(*line_ptr)++;
-		return (len_to_alloc(line_ptr, env_lst, '"'));
+		return (len_to_alloc(line_ptr, '"'));
 
 	}
 	else if (qstart != '\'' && valid_env_str(*line_ptr))
@@ -616,12 +656,12 @@ int		len_to_alloc(char **line_ptr, t_list *env_lst, char qstart)
 		*line_ptr += key_len;
 		free_str(&var);
 		// printf("\t\t env var len to alloc: %i\n", len);
-		return (len + len_to_alloc(line_ptr, env_lst, qstart));
+		return (len + len_to_alloc(line_ptr, qstart));
 	}
 	else
 	{	
 		(*line_ptr)++;
-		return (1 + len_to_alloc(line_ptr, env_lst, qstart));
+		return (1 + len_to_alloc(line_ptr, qstart));
 	}
 }
 
@@ -632,7 +672,7 @@ int		len_to_alloc(char **line_ptr, t_list *env_lst, char qstart)
  * copies byte by byte till hits a delim based on previous logic
 */
 
-void	word_copy(char **line_ptr, t_list *env_lst, char qstart, char *word)
+void	word_copy(char **line_ptr, char qstart, char *word)
 {
 	if (qstart && **line_ptr == qstart)
 	{
@@ -649,12 +689,12 @@ void	word_copy(char **line_ptr, t_list *env_lst, char qstart, char *word)
 	else if (!qstart && **line_ptr == '\'')
 	{
 		(*line_ptr)++;
-		return (word_copy(line_ptr, env_lst, '\'', word));
+		return (word_copy(line_ptr, '\'', word));
 	}
 	else if (!qstart && **line_ptr == '"')
 	{
 		(*line_ptr)++;
-		return (word_copy(line_ptr, env_lst, '"', word));
+		return (word_copy(line_ptr, '"', word));
 	}
 	else if (qstart != '\'' && valid_env_str(*line_ptr))
 	{
@@ -675,18 +715,18 @@ void	word_copy(char **line_ptr, t_list *env_lst, char qstart, char *word)
 		*line_ptr += key_len;
 		free_str(&var);
 		// printf("\t\t env var len to alloc: %i\n", len);
-		return (word_copy(line_ptr, env_lst, qstart, word));
+		return (word_copy(line_ptr, qstart, word));
 	}
 	else
 	{
 		*word = **line_ptr;
 		(*line_ptr)++;
 		word++;
-		return (word_copy(line_ptr, env_lst, qstart, word));
+		return (word_copy(line_ptr, qstart, word));
 	}
 }
 
-void parse_cmd(t_list *cmd_lst, t_list *env_lst)
+void parse_cmd(t_list *cmd_lst)
 {
 	t_cmd *cmd = (t_cmd *) cmd_lst->content;
 	char *line = cmd->line;
@@ -716,12 +756,12 @@ void parse_cmd(t_list *cmd_lst, t_list *env_lst)
 			while (is_space(*line))
 				line++;
 			char *copy = line;
-			int len = len_to_alloc(&line, env_lst, 0);
+			int len = len_to_alloc(&line, 0);
 			// printf("allocating pointer of len %i\n", len);
 			// printf("line is crrently %s\n", line);
 			redirs = ft_realloc(redirs, cmd->num_redirects * sizeof(t_redir), (cmd->num_redirects + 1) * sizeof(t_redir));
 			char *redir_file = ft_calloc(len + 1, sizeof(char));
-			word_copy(&copy, env_lst, 0, redir_file);
+			word_copy(&copy, 0, redir_file);
 
 			redirs[cmd->num_redirects].file = redir_file;
 			redirs[cmd->num_redirects].type = type;
@@ -732,7 +772,7 @@ void parse_cmd(t_list *cmd_lst, t_list *env_lst)
 		else
 		{
 			char *copy = line;
-			int len = len_to_alloc(&line, env_lst, 0);
+			int len = len_to_alloc(&line, 0);
 			if (len)
 			{
 				// char *word = ft_calloc(len, sizeof(char));
@@ -740,7 +780,7 @@ void parse_cmd(t_list *cmd_lst, t_list *env_lst)
 				// printf("line is crrently %s\n", line);
 				char *word = ft_calloc(len + 1, sizeof(char));
 				words[cmd->num_words] = word;
-				word_copy(&copy, env_lst, 0, words[cmd->num_words]);
+				word_copy(&copy, 0, words[cmd->num_words]);
 				cmd->num_words++;
 				words = ft_realloc(words, cmd->num_words * sizeof(char*), (cmd->num_words + 1) * sizeof(char*));
 			}
@@ -764,13 +804,11 @@ void	create_words(t_params *params)
 	 * if redirect operator,
 	 * find filename and run redir prep
 	*/
-
-	t_list *env_lst = params->env_list;
 	t_list *cmd_lst = params->cmd_list;
 
 	while (cmd_lst)
 	{
-		parse_cmd(cmd_lst, env_lst); // cmd should point to env lst
+		parse_cmd(cmd_lst); // cmd should point to env lst
 		// copy_bytes(cmd_lst, env_lst);
 		params->total_heredocs += ((t_cmd *) cmd_lst->content)->num_heredocs;
 		cmd_lst = cmd_lst->next;
@@ -814,7 +852,7 @@ void create_cmds(t_params *params)
 			total_len += len + 1;
 
 			node->content = cmd;
-			parse_cmd(node, params->env_list);
+			parse_cmd(node);
 			ft_lstadd_back(&params->cmd_list, node);
 		}
 
@@ -831,7 +869,7 @@ void create_cmds(t_params *params)
 			total_len += len + 1;
 
 			node->content = cmd;
-			parse_cmd(node, params->env_list);
+			parse_cmd(node);
 			ft_lstadd_back(&params->cmd_list, node);
 		}
 
@@ -964,19 +1002,6 @@ int	count_cmds(t_params *params)
 }
 
 
-void	print_env_lst(t_params *params)
-{
-	t_list *next = params->env_list;
-	while (true)
-	{
-		if (!next)
-			break;
-		t_env *var = (t_env *) next->content;
-		printf("%s=%s\n", var->key, var->value);
-		next = next->next;
-	}
-}
-
 void free_str(char **str)
 {
 	if (*str)
@@ -1050,15 +1075,6 @@ void safe_free(void **ptr)
 	*ptr = NULL;
 }
 
-void free_env(void *ptr)
-{
-	t_env *var = (t_env *) ptr;
-
-	safe_free((void **) &(var->key));
-	safe_free((void **) &(var->value));
-	safe_free((void **) &(var));
-}
-
 bool valid_env_char(char c)
 {
 	return (ft_isalnum(c) || c == '_');
@@ -1111,3 +1127,54 @@ bool is_meta(char *line)
 	return (is_redirect(line) || !ft_strncmp(line, "|", 1));
 }
 
+void set_env(char *var)
+{
+    char *key = ft_strdup(var);
+    char *loc = ft_strchr(key, '=');
+    if (loc) *loc = '\0';  // split the key and value
+
+    if (getenv(key)) {
+        free_str(&key);
+    }
+
+    int i;
+    for (i = 0; environ[i] != NULL; i++);  // find the end of environ
+
+    environ = (char **)ft_realloc(environ, sizeof(char *) * (i + 2), sizeof(char *) * (i + 3));
+    environ[i] = ft_strdup(var);
+    environ[i + 1] = NULL;
+
+    free_str(&key);
+}
+
+void ms_export(char *arg)
+{
+	char *key = NULL;
+	char *value = NULL;
+	char *equals_sign = NULL;
+
+	equals_sign = ft_strchr(arg, '=');
+	if (equals_sign != NULL) {
+		key = ft_substr(arg, 0, equals_sign - arg);
+		value = ft_strdup(equals_sign + 1);
+	} else {
+		key = ft_strdup(arg);
+	}
+
+	if (key != NULL && value != NULL) {
+		set_env(arg);
+	}
+
+	safe_free((void **) &key);
+	safe_free((void **) &value);
+}
+
+void print_env(void)
+{
+    int i = 0;
+    while (environ[i])
+    {
+        printf("%s\n", environ[i]);
+        i++;
+    }
+}
