@@ -83,7 +83,7 @@ typedef struct s_params
 }	t_params;
 
 void	*ft_realloc(void *ptr, size_t old_size, size_t size);
-char	**find_paths(char **envp);
+char	**find_paths(void);
 void	free_str(char **p);
 void 	safe_free(void **ptr);
 char	*check_valid_cmd(char **paths, char *cmd);
@@ -180,7 +180,7 @@ int main(int ac, char **av, char **envp)
 	 * will not change PATHS searched durin cmd execution.
 	 * 
 	*/
-	params.paths = find_paths(envp);
+
 	// i = 0;
 	// while (envp && envp[i])
 	// {
@@ -395,7 +395,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 		}
 		if (argv[0])
 		{
-			char *binpath = check_valid_cmd(params->paths, argv[0]);
+			char *binpath = check_valid_cmd(find_paths(), argv[0]);
 
 			if (binpath && redirect_success)
 			{
@@ -984,14 +984,16 @@ void free_str(char **str)
 	*str = NULL;
 }
 
-char **find_paths(char **envp)
+char **find_paths(void)
 {
+	char	*paths_var;
 	char	**paths;
 
-	while (*envp && ft_strncmp(*envp, "PATH", 4))
-		envp++;
-	if (*envp)
-		paths = ft_split(*envp + 5, ':');
+	// while (*envp && ft_strncmp(*envp, "PATH", 4))
+	// 	envp++;
+	paths_var = getenv("PATH");
+	if (paths_var)
+		paths = ft_split(paths_var + 5, ':');
 	else
 		paths = (char **)(ft_calloc(1, sizeof(char *)));
 
