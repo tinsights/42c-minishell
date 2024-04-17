@@ -164,7 +164,10 @@ int main(int ac, char **av, char **envp)
 	params.default_io[1] = dup(STDOUT_FILENO);
 
 	if (!isatty(params.default_io[1]))
+	{
+		// write(2, "xx\n", 3);
 		dup2(open("/dev/tty", O_WRONLY), STDOUT_FILENO);
+	}
 
 	/* -------------------------------------------------------------------------- */
 	/*                         Process ENVP, create PATHS                         */
@@ -275,7 +278,7 @@ int main(int ac, char **av, char **envp)
 
 bool is_builtin(char **argv)
 {
-	if (!argv)
+	if (!argv || !argv[0])
 		return false;
 	
 	return (!ft_strncmp(argv[0], "export", 7) || !ft_strncmp(argv[0], "env", 4) || !ft_strncmp(argv[0], "exit", 5));
@@ -324,9 +327,6 @@ void run_command(t_params *params, t_list *cmd_lst)
 	int pid = fork();
 
 	// else, run single builtin?
-
-	
-	// printf("pid: %i\n", pid);
 
 	if (pid == 0)
 	{
@@ -400,8 +400,6 @@ void run_command(t_params *params, t_list *cmd_lst)
 				{
 					int heredoc_pipe[2];
 					pipe(heredoc_pipe);
-					dup2(heredoc_pipe[0], STDIN_FILENO);
-					close(heredoc_pipe[0]);
 					char *delim = redir.file;
 					int len = ft_strlen(delim);
 					char *line = get_next_line(params->default_io[0]);
@@ -413,13 +411,17 @@ void run_command(t_params *params, t_list *cmd_lst)
 						free_str(&line);
 						line = get_next_line(params->default_io[0]);
 					}
+					dup2(heredoc_pipe[0], STDIN_FILENO);
+					close(heredoc_pipe[0]);
+					close(heredoc_pipe[1]);
 					free_str(&line);
 					get_next_line(-1);
-					close(heredoc_pipe[1]);
+
 				}
 				redir_ctr++;
 			}
 		}
+
 		if (argv[0])
 		{
 			char *binpath = check_valid_cmd(find_paths(), argv[0]);
@@ -447,7 +449,6 @@ void run_command(t_params *params, t_list *cmd_lst)
 	else
 	{
 		//parent
-
 		cmd->proc.pid = pid;
 
 		// eventually done at parent level
@@ -477,9 +478,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 
 		}
 			// printf("hello from parent of %i\n", pid);
-			if (WEXITSTATUS(cmd->proc.exit_status))
-				printf("process %i exited with status %i \n", pid, WEXITSTATUS(cmd->proc.exit_status));
-			else
+			if (!WEXITSTATUS(cmd->proc.exit_status))
 				waitpid(pid, &(cmd->proc.exit_status), 0);
 			cmd->proc.exited = true;
 
@@ -542,44 +541,6 @@ void	run_child_command(int p_fd[2], char **paths, char **cmd)
 		perror("");
 		if (binpath)
 			free(binpath);
-	}
-}
-
-void	recurse_pipe(char **paths, t_list *cmd_lst)
-{
-	int		p_fd[2];
-	int		pid;
-	t_cmd	*cmd = cmd_lst->content;
-	char	**words = cmd->words;
-
-
-	pipe(p_fd);
-	pid = fork();
-	if (pid == 0)
-	{
-		run_child_command(p_fd, paths, words);
-	}
-	else
-	{
-		if (cmd_lst->next)
-		{
-			close(p_fd[1]);
-			dup2(p_fd[0], STDIN_FILENO);
-			close(p_fd[0]);
-			printf("\t\t recursing\n");
-			recurse_pipe(paths, cmd_lst->next);
-		}
-		else
-		{
-			char c;
-			close(p_fd[1]);
-
-			while (read(p_fd[0], &c, 1))
-				write(STDOUT_FILENO, &c, 1);
-			waitpid(pid, NULL, 0);
-
-		}
-		wait(NULL);
 	}
 }
 

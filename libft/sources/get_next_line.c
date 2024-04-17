@@ -97,7 +97,7 @@ char	*get_next_line(int fd)
 
 	if (fd < 0 || !init(&store, &buff, &result))
 	{
-		ft_free((void **) store);
+		ft_free((void **) &store);
 		return (NULL);
 	}
 	if (gnl_strlen(store) > 0)
