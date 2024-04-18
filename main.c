@@ -96,6 +96,8 @@ bool 	valid_env_str(char *line);
 bool 	valid_env_char(char c);
 void 	print_env(void);
 void 	ms_export(char *arg);
+void	ms_exit(t_params *params, int code);
+
 
 extern char **environ;
 
@@ -268,11 +270,6 @@ int main(int ac, char **av, char **envp)
 		}
 	}
 
-	// ft_lstclear(&params.env_list, free_env);
-	// i = 0;
-	// while (params.paths[i])
-	// 	safe_free((void **) (params.paths + i++));
-	// safe_free((void **) &(params.paths));
 	free_str(&(params.line));
 }
 
@@ -310,7 +307,7 @@ void run_builtin(t_params *params, t_list *cmd_lst)
 	}
 	else if (!ft_strncmp(argv[0], "exit", 5))
 	{
-		exit(0);
+		ms_exit(params, 0);
 	}
 	else if (!ft_strncmp(argv[0], "unset", 6))
 	{
@@ -331,6 +328,9 @@ void run_command(t_params *params, t_list *cmd_lst)
 	char *binpath = NULL;
 
 	int p_fd[2];
+
+	params->paths = find_paths();
+
 
 	if (cmd_lst->next)
 		pipe(p_fd);	// error checking??
@@ -439,7 +439,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 
 		if (argv[0])
 		{
-			char *binpath = check_valid_cmd(find_paths(), argv[0]);
+			char *binpath = check_valid_cmd(params->paths, argv[0]);
 
 			if (binpath && redirect_success)
 			{
@@ -459,7 +459,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 		// free all memory
 		// use builtin exit
 		// printf("\t\t %i EXITING\n", getpid());
-		exit(1);
+		ms_exit(params, 1);
 	}
 	else
 	{
@@ -1092,6 +1092,21 @@ bool is_meta(char *line)
 	return (is_redirect(line) || !ft_strncmp(line, "|", 1));
 }
 
+
+void ms_exit(t_params *params, int code)
+{
+	ft_lstclear(&(params->cmd_list), free_cmds);
+
+	for (int i = 0; environ[i]; i++)
+		free_str(&(environ[i]));
+	safe_free((void **) &environ);
+
+	for (int i = 0; params->paths[i]; i++)
+		free_str(&(params->paths[i]));
+
+	free_str(&(params->line));
+	exit(code);
+}
 
 void unset_env(char *var)
 {
