@@ -281,7 +281,11 @@ bool is_builtin(char **argv)
 	if (!argv || !argv[0])
 		return false;
 	
-	return (!ft_strncmp(argv[0], "export", 7) || !ft_strncmp(argv[0], "env", 4) || !ft_strncmp(argv[0], "exit", 5));
+	return (!ft_strncmp(argv[0], "export", 7)
+	|| !ft_strncmp(argv[0], "env", 4)
+	|| !ft_strncmp(argv[0], "unset", 6)
+	|| !ft_strncmp(argv[0], "echo", 5)
+	|| !ft_strncmp(argv[0], "exit", 5));
 }
 
 void run_builtin(t_params *params, t_list *cmd_lst)
@@ -294,7 +298,6 @@ void run_builtin(t_params *params, t_list *cmd_lst)
 		int i = 1;
 		while (argv[i])
 		{
-			printf("xx\n");
 			ms_export(argv[i]);
 			i++;
 		}
@@ -306,6 +309,10 @@ void run_builtin(t_params *params, t_list *cmd_lst)
 	else if (!ft_strncmp(argv[0], "exit", 5))
 	{
 		exit(0);
+	}
+	else if (!ft_strncmp(argv[0], "unset", 6))
+	{
+		// run unset
 	}
 }
 
