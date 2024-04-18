@@ -97,7 +97,7 @@ bool 	valid_env_char(char c);
 void 	print_env(void);
 void 	ms_export(char *arg);
 
-
+extern char **environ;
 
 void free_cmds(void *ptr)
 {
@@ -186,13 +186,13 @@ int main(int ac, char **av, char **envp)
 	while (envp[i])
 		i++;  // find the end of __
 
-    __environ = (char **) ft_calloc(i + 1, sizeof(char *));
+    environ = (char **) ft_calloc(i + 1, sizeof(char *));
 	i = 0;
 
 	while (envp[i])
 	{
 		// printf("xx %s\n", envp[i]);
-    	__environ[i] = ft_strdup(envp[i]);
+    	environ[i] = ft_strdup(envp[i]);
 		i++;
 	}
 
@@ -284,9 +284,11 @@ bool is_builtin(char **argv)
 	return (!ft_strncmp(argv[0], "export", 7)
 	|| !ft_strncmp(argv[0], "env", 4)
 	|| !ft_strncmp(argv[0], "unset", 6)
-	|| !ft_strncmp(argv[0], "echo", 5)
+	// || !ft_strncmp(argv[0], "echo", 5)
 	|| !ft_strncmp(argv[0], "exit", 5));
 }
+
+void unset_env(char *var);
 
 void run_builtin(t_params *params, t_list *cmd_lst)
 {
@@ -313,6 +315,12 @@ void run_builtin(t_params *params, t_list *cmd_lst)
 	else if (!ft_strncmp(argv[0], "unset", 6))
 	{
 		// run unset
+		int i = 1;
+		while (argv[i])
+		{
+			unset_env(argv[i]);
+			i++;
+		}
 	}
 }
 
@@ -436,7 +444,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 			if (binpath && redirect_success)
 			{
 				// printf("\t\t EXECVE  %s\n", binpath);
-				execve(binpath, argv, __environ);	// do we need to pass in envp?
+				execve(binpath, argv, environ);	// do we need to pass in envp?
 				perror("");
 			}
 			else if (redirect_success)
@@ -1084,24 +1092,57 @@ bool is_meta(char *line)
 	return (is_redirect(line) || !ft_strncmp(line, "|", 1));
 }
 
+
+void unset_env(char *var)
+{
+	char *key = ft_strdup(var);
+	char *loc = ft_strchr(key, '=');
+	if (loc) *loc = '\0';  // split the key and value
+
+	// check if key exists in environ
+	// if yes, free and replace
+
+	int i = 0;
+	while (environ[i])
+	{
+		if (!ft_strncmp(environ[i], key, ft_strlen(key)))
+		{
+			environ[i][ft_strlen(key)] = '\0';
+			break ;
+		}
+		i++;
+	}
+	free(key);
+}
+
 void set_env(char *var)
 {
-	printf("xx %s\n", var);
     char *key = ft_strdup(var);
     char *loc = ft_strchr(key, '=');
     if (loc) *loc = '\0';  // split the key and value
 
-    if (getenv(key)) {
-        free_str(&key);
-    }
+	// check if key exists in environ
+	// if yes, free and replace
 
-    int i;
-    for (i = 0; __environ[i] != NULL; i++);  // find the end of __
+	int i = 0;
+	while (environ[i])
+	{
+		if (!ft_strncmp(environ[i], key, ft_strlen(key)))
+		{
+			free(environ[i]);
+			environ[i] = ft_strdup(var);
+			break ;
+		}
+		i++;
+	}
+	if (!environ[i])
+	{
+		environ = ft_realloc(environ, i * sizeof(char *), (i + 2) * sizeof(char *));
+		environ[i] = ft_strdup(var);
+		environ[i + 1] = NULL;
+	}
+	free(key);
 
-    __environ = (char **)ft_realloc(__environ, sizeof(char *) * (i + 1), sizeof(char *) * (i + 2));
-    __environ[i] = ft_strdup(var);
-
-    free_str(&key);
 }
 
 void ms_export(char *arg)
@@ -1114,8 +1155,6 @@ void ms_export(char *arg)
 	if (equals_sign != NULL) {
 		key = ft_substr(arg, 0, equals_sign - arg);
 		value = ft_strdup(equals_sign + 1);
-	} else {
-		key = ft_strdup(arg);
 	}
 
 	if (key != NULL && value != NULL) {
@@ -1129,9 +1168,9 @@ void ms_export(char *arg)
 void print_env(void)
 {
     int i = 0;
-    while (__environ[i])
+    while (environ[i])
     {
-        printf("%s\n", __environ[i]);
+        printf("%s\n", environ[i]);
         i++;
     }
 }
