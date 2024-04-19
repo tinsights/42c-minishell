@@ -92,8 +92,9 @@ t_redir_type get_redir_type(char *line);
 void	recurse_pipe(char **paths, t_list *cmd_lst);
 void 	run_command(t_params *params, t_list *cmd_lst);
 void 	free_env(void *ptr);
-bool 	valid_env_str(char *line);	
+bool 	valid_env_start(char *line);	
 bool 	valid_env_char(char c);
+void	set_env(char * str);
 void 	print_env(void);
 void 	ms_export(char *arg);
 void	ms_exit(t_params *params, int code);
@@ -208,6 +209,7 @@ int main(int ac, char **av, char **envp)
 				i++;  // find the end of __
 
 			params.env_count = i;
+			set_env("?=0");
 		}
 		// params.line = get_next_line(params.default_io[0]);
 		if (params.line && *params.line)
@@ -441,7 +443,6 @@ void run_command(t_params *params, t_list *cmd_lst)
 		{
 			params->paths = find_paths();
 			char *binpath = check_valid_cmd(params->paths, argv[0]);
-
 			if (binpath && redirect_success)
 			{
 				// printf("\t\t EXECVE  %s\n", binpath);
@@ -457,10 +458,14 @@ void run_command(t_params *params, t_list *cmd_lst)
 				perror("");
 		}
 		free_str(&binpath);
+		if (redirect_success)
+			ms_exit(params, 127);
+		else
+			ms_exit(params, 1);
+
 		// free all memory
 		// use builtin exit
 		// printf("\t\t %i EXITING\n", getpid());
-		ms_exit(params, 1);
 	}
 	else
 	{
@@ -485,22 +490,26 @@ void run_command(t_params *params, t_list *cmd_lst)
 			close(p_fd[0]);
 			run_command(params, cmd_lst->next);
 		}
-		else
+		// printf("hello from parent of %i\n", pid);
+		waitpid(pid, &(cmd->proc.exit_status), 0);
+		cmd->proc.exited = true;
+
+		if (!cmd_lst->next)
 		{
 			// final command!
 
 			// return stdin to default
 			dup2(params->default_io[0], STDIN_FILENO);
+			char *res = ft_itoa(WEXITSTATUS(cmd->proc.exit_status));
+			char *key = ft_strjoin("?=", res);
 
+			// printf("res: %s, key: %s\n", res, key);
+			set_env(key);
+			free_str(&res);
+			free_str(&key);
 		}
-			// printf("hello from parent of %i\n", pid);
-			if (!WEXITSTATUS(cmd->proc.exit_status))
-				waitpid(pid, &(cmd->proc.exit_status), 0);
-			cmd->proc.exited = true;
 
 	}
-	free_str(&binpath);
-	// return exit status
 }
 
 char	*check_valid_cmd(char **paths, char *cmd)
@@ -566,9 +575,8 @@ char *get_env_key(char *line)
 	char *result;
 
 	int i = 1;
-	/**
-	 * TODO: special treatment for $?
-	*/
+	if(line[i] == '?')
+		return ft_substr(line, 1, 1);
 	if (line[i] == '_' || ft_isalpha(line[i]))
 	{
 		i++;
@@ -605,7 +613,7 @@ int		len_to_alloc(char **line_ptr, char qstart)
 		return (len_to_alloc(line_ptr, '"'));
 
 	}
-	else if (qstart != '\'' && valid_env_str(*line_ptr))
+	else if (qstart != '\'' && valid_env_start(*line_ptr))
 	{
 		char *var = get_env_key(*line_ptr);
 		int	key_len = 0;
@@ -662,7 +670,7 @@ void	word_copy(char **line_ptr, char qstart, char *word)
 		(*line_ptr)++;
 		return (word_copy(line_ptr, '"', word));
 	}
-	else if (qstart != '\'' && valid_env_str(*line_ptr))
+	else if (qstart != '\'' && valid_env_start(*line_ptr))
 	{
 		char *var = get_env_key(*line_ptr);
 		int	key_len = 0;
@@ -1047,9 +1055,9 @@ bool valid_env_char(char c)
 }
 
 
-bool valid_env_str(char *line)
+bool valid_env_start(char *line)
 {
-	return (*line == '$' && (line[1] == '?' || line[1] == '_' || ft_isalpha(line[1])));
+	return (*line == '$' && (line[1] == '?' || valid_env_char(line[1])));
 }
 
 t_redir_type get_redir_type(char *line)
@@ -1101,7 +1109,7 @@ void ms_exit(t_params *params, int code)
 	{
 	for (int i = 0; params->paths[i]; i++)
 	{
-		printf("%s\n", params->paths[i]);
+		// printf("%s\n", params->paths[i]);
 		free(params->paths[i]);
 	}
 
@@ -1181,19 +1189,32 @@ void ms_export(char *arg)
 	char *key = NULL;
 	char *value = NULL;
 	char *equals_sign = NULL;
+	bool valid = true;
+
 
 	equals_sign = ft_strchr(arg, '=');
-	if (equals_sign != NULL) {
-		key = ft_substr(arg, 0, equals_sign - arg);
+	key = ft_substr(arg, 0, equals_sign - arg);
+
+	// printf("key: %s\n", key);
+	for (int i = 0; key[i]; i++)
+		if (!valid_env_char(key[i]))
+			valid = false;
+
+	if (valid)
+	{
 		value = ft_strdup(equals_sign + 1);
+		if (valid && value != NULL)
+				set_env(arg);
+	}
+	else
+	{
+		ft_putstr_fd("Invalid var: ", 2);
+		ft_putstr_fd(key, 2);
+		ft_putstr_fd("\n", 2);
 	}
 
-	if (key != NULL && value != NULL) {
-		set_env(arg);
-	}
-
-	safe_free((void **) &key);
-	safe_free((void **) &value);
+	free_str(&key);
+	free_str(&value);
 }
 
 void print_env(void)
@@ -1205,3 +1226,5 @@ void print_env(void)
         i++;
     }
 }
+
+
