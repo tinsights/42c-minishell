@@ -69,7 +69,7 @@ typedef struct s_params
 	char		**paths;
 	bool		interactive; // default true
 
-
+	int			env_count;
 	int			default_io[2];
 
 	t_list		*cmd_list;
@@ -98,8 +98,6 @@ void 	print_env(void);
 void 	ms_export(char *arg);
 void	ms_exit(t_params *params, int code);
 
-
-extern char **environ;
 
 void free_cmds(void *ptr)
 {
@@ -183,20 +181,16 @@ int main(int ac, char **av, char **envp)
 	 * will not change PATHS searched durin cmd execution.
 	 * 
 	*/
+	
+    // environ = (char **) ft_calloc(i + 1, sizeof(char *));
+	// // i = 0;
 
-	i = 0;
-	while (envp[i])
-		i++;  // find the end of __
-
-    environ = (char **) ft_calloc(i + 1, sizeof(char *));
-	i = 0;
-
-	while (envp[i])
-	{
-		// printf("xx %s\n", envp[i]);
-    	environ[i] = ft_strdup(envp[i]);
-		i++;
-	}
+	// while (envp[i])
+	// {
+	// 	// printf("xx %s\n", envp[i]);
+    // 	environ[i] = ft_strdup(envp[i]);
+	// 	i++;
+	// }
 
 	/* -------------------------------------------------------------------------- */
 	/*                            Read line with prompt                           */
@@ -206,6 +200,15 @@ int main(int ac, char **av, char **envp)
 	{
 		free_str(&(params.line));
 		params.line = readline("$> ");
+
+		if (!params.env_count)
+		{
+			i = 0;
+			while (__environ[i])
+				i++;  // find the end of __
+
+			params.env_count = i;
+		}
 		// params.line = get_next_line(params.default_io[0]);
 		if (params.line && *params.line)
 		{
@@ -329,9 +332,6 @@ void run_command(t_params *params, t_list *cmd_lst)
 
 	int p_fd[2];
 
-	params->paths = find_paths();
-
-
 	if (cmd_lst->next)
 		pipe(p_fd);	// error checking??
 	else if (is_builtin(argv))
@@ -439,12 +439,13 @@ void run_command(t_params *params, t_list *cmd_lst)
 
 		if (argv[0])
 		{
+			params->paths = find_paths();
 			char *binpath = check_valid_cmd(params->paths, argv[0]);
 
 			if (binpath && redirect_success)
 			{
 				// printf("\t\t EXECVE  %s\n", binpath);
-				execve(binpath, argv, environ);	// do we need to pass in envp?
+				execve(binpath, argv, __environ);	// do we need to pass in envp?
 				perror("");
 			}
 			else if (redirect_success)
@@ -983,7 +984,7 @@ char **find_paths(void)
 	// 	envp++;
 	paths_var = getenv("PATH");
 	if (paths_var)
-		paths = ft_split(paths_var + 5, ':');
+		paths = ft_split(paths_var, ':');
 	else
 		paths = (char **)(ft_calloc(1, sizeof(char *)));
 
@@ -991,9 +992,9 @@ char **find_paths(void)
 	int i = 0;
 	while (paths[i])
 		i++;
-	paths = ft_realloc(paths, i * sizeof(char *), (i + 2) * sizeof(char *));
-	paths[i] = getcwd(NULL, 500);
-	paths[i + 1] = NULL;
+	// paths = ft_realloc(paths, i * sizeof(char *), (i + 1) * sizeof(char *));
+	// paths[i] = getcwd(NULL, 500);
+	// paths[i + 1] = NULL;
 	return paths;
 }
 
@@ -1004,7 +1005,7 @@ void	*ft_realloc(void *ptr, size_t old_size, size_t size)
 
 	if (!size)
 	{
-		safe_free((void **) ptr);
+		free(ptr);
 		return (NULL);
 	}
 	if (!ptr)
@@ -1095,14 +1096,29 @@ bool is_meta(char *line)
 
 void ms_exit(t_params *params, int code)
 {
+
+	if (params->paths)
+	{
+	for (int i = 0; params->paths[i]; i++)
+	{
+		printf("%s\n", params->paths[i]);
+		free(params->paths[i]);
+	}
+
+	free(params->paths);
+	}
+
 	ft_lstclear(&(params->cmd_list), free_cmds);
 
-	for (int i = 0; environ[i]; i++)
-		free_str(&(environ[i]));
-	safe_free((void **) &environ);
-
-	for (int i = 0; params->paths[i]; i++)
-		free_str(&(params->paths[i]));
+	int i = 0;
+	while (__environ[i])
+		i++;
+	if (i > params->env_count)
+	{
+		for (int i = params->env_count; __environ[i]; i++)
+			free_str(__environ + i);
+		free(__environ);
+	}
 
 	free_str(&(params->line));
 	exit(code);
@@ -1118,11 +1134,11 @@ void unset_env(char *var)
 	// if yes, free and replace
 
 	int i = 0;
-	while (environ[i])
+	while (__environ[i])
 	{
-		if (!ft_strncmp(environ[i], key, ft_strlen(key)))
+		if (!ft_strncmp(__environ[i], key, ft_strlen(key)))
 		{
-			environ[i][ft_strlen(key)] = '\0';
+			__environ[i][ft_strlen(key)] = '\0';
 			break ;
 		}
 		i++;
@@ -1140,21 +1156,21 @@ void set_env(char *var)
 	// if yes, free and replace
 
 	int i = 0;
-	while (environ[i])
+	while (__environ[i])
 	{
-		if (!ft_strncmp(environ[i], key, ft_strlen(key)))
+		if (!ft_strncmp(__environ[i], key, ft_strlen(key)))
 		{
-			free(environ[i]);
-			environ[i] = ft_strdup(var);
+			free(__environ[i]);
+			__environ[i] = ft_strdup(var);
 			break ;
 		}
 		i++;
 	}
-	if (!environ[i])
+	if (!__environ[i])
 	{
-		environ = ft_realloc(environ, i * sizeof(char *), (i + 2) * sizeof(char *));
-		environ[i] = ft_strdup(var);
-		environ[i + 1] = NULL;
+		__environ = ft_realloc(__environ, i * sizeof(char *), (i + 2) * sizeof(char *));
+		__environ[i] = ft_strdup(var);
+		__environ[i + 1] = NULL;
 	}
 	free(key);
 
@@ -1183,9 +1199,9 @@ void ms_export(char *arg)
 void print_env(void)
 {
     int i = 0;
-    while (environ[i])
+    while (__environ[i])
     {
-        printf("%s\n", environ[i]);
+        printf("%s\n", __environ[i]);
         i++;
     }
 }
