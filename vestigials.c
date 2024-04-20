@@ -52,3 +52,26 @@ char *parse_env_var(t_list *env_lst, char *var)
 	}
 	return (NULL);
 }
+
+void	create_words(t_params *params)
+{
+	/**
+	 * TODO: Go through entire word,
+	 * skip IFS/whitespace,
+	 * if unquoted string
+	 * malloc and add to **words arr
+	 * if single quoted string
+	 * remove quotes and add to **words
+	 * if redirect operator,
+	 * find filename and run redir prep
+	*/
+	t_list *cmd_lst = params->cmd_list;
+
+	while (cmd_lst)
+	{
+		parse_cmd(cmd_lst); // cmd should point to env lst
+		// copy_bytes(cmd_lst, env_lst);
+		params->total_heredocs += ((t_cmd *) cmd_lst->content)->num_heredocs;
+		cmd_lst = cmd_lst->next;
+	}
+}

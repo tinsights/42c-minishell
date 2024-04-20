@@ -7,7 +7,11 @@ INC = -Ilibft/includes
 LIBDIR = libft/
 LIBFT = $(LIBDIR)/libft.a
 
-SRCS = main.c
+SRCS = main.c \
+		builtins.c \
+		mem_utils.c \
+		parse_utils.c \
+		parser.c
 
 OBJS = $(SRCS:.c=.o)
 
