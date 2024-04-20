@@ -25,13 +25,13 @@ void ms_exit(t_params *params, int code)
 
 	if (params->paths)
 	{
-	for (int i = 0; params->paths[i]; i++)
-	{
-		// printf("%s\n", params->paths[i]);
-		free(params->paths[i]);
-	}
+        for (int i = 0; params->paths[i]; i++)
+        {
+            // printf("%s\n", params->paths[i]);
+            free(params->paths[i]);
+        }
 
-	free(params->paths);
+        free(params->paths);
 	}
 
 	ft_lstclear(&(params->cmd_list), free_cmds);
@@ -43,8 +43,10 @@ void ms_exit(t_params *params, int code)
 	{
 		for (int i = params->env_count; __environ[i]; i++)
 			free_str(__environ + i);
-		free(__environ);
+    	free(__environ);
+
 	}
+
 
 	free_str(&(params->line));
 	exit(code);
@@ -102,7 +104,7 @@ void set_env(char *var)
 
 }
 
-void ms_export(char *arg)
+int ms_export(char *arg)
 {
 	char *key = NULL;
 	char *value = NULL;
@@ -111,20 +113,21 @@ void ms_export(char *arg)
 
 
 	equals_sign = ft_strchr(arg, '=');
-    if (!equals_sign)
-        key = ft_strdup(arg);
-    else
+    if (equals_sign && equals_sign != arg)
 	    key = ft_substr(arg, 0, equals_sign - arg);
+    else
+        key = ft_strdup(arg);
 
-	for (int i = 0; key[i]; i++)
+	int i = -1;
+    while (key[++i])
 		if (!valid_env_char(key[i]))
 			valid = false;
 
 	if (!valid)
 	{
-        ft_putstr_fd("Invalid var: ", 2);
+        ft_putstr_fd("export: '", 2);
 		ft_putstr_fd(key, 2);
-		ft_putstr_fd("\n", 2);
+		ft_putstr_fd("' not a valid identifier\n", 2);
 	}
 	else if (equals_sign)
 	{
@@ -135,6 +138,7 @@ void ms_export(char *arg)
 
 	free_str(&key);
 	free_str(&value);
+    return (!valid);
 }
 
 void print_env(void)
@@ -142,25 +146,23 @@ void print_env(void)
     int i = 0;
     while (__environ[i])
     {
-        if (ft_strchr(__environ[i], '='))
+        if (ft_strncmp(__environ[i], "?", 1) && ft_strchr(__environ[i], '='))
             printf("%s\n", __environ[i]);
         i++;
     }
 }
 
-void run_builtin(t_params *params, t_list *cmd_lst)
+int run_builtin(t_params *params, t_list *cmd_lst)
 {
-	t_cmd *cmd = cmd_lst->content;
-	char **argv = cmd->words;
+	t_cmd   *cmd = cmd_lst->content;
+	char    **argv = cmd->words;
+    int     exit_code = 0;
 
 	if (!ft_strncmp(argv[0], "export", 7))
 	{
-		int i = 1;
-		while (argv[i])
-		{
-			ms_export(argv[i]);
-			i++;
-		}
+		int i = 0;
+		while (argv[++i])
+			exit_code |=  ms_export(argv[i]);
 	}
 	else if (!ft_strncmp(argv[0], "env", 4))
 	{
@@ -168,6 +170,8 @@ void run_builtin(t_params *params, t_list *cmd_lst)
 	}
 	else if (!ft_strncmp(argv[0], "exit", 5))
 	{
+        if (params->num_cmds == 1 && !cmd_lst->next)
+            printf("exit\n");
 		ms_exit(params, 0);
 	}
 	else if (!ft_strncmp(argv[0], "unset", 6))
@@ -180,4 +184,6 @@ void run_builtin(t_params *params, t_list *cmd_lst)
 			i++;
 		}
 	}
+    printf("\t\tbuiltin exitin with code %i\n", exit_code);
+    return exit_code;
 }

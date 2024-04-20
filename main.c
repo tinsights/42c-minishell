@@ -33,7 +33,7 @@ void	create_cmds(t_params *params);
 // int		is_redirect(char *line);
 // t_redir_type get_redir_type(char *line);
 // void	recurse_pipe(char **paths, t_list *cmd_lst);
-void 	run_command(t_params *params, t_list *cmd_lst);
+int 	run_command(t_params *params, t_list *cmd_lst);
 // void 	free_env(void *ptr);
 // bool 	valid_env_start(char *line);	
 // bool 	valid_env_char(char c);
@@ -43,7 +43,7 @@ void		set_env(char * str);
 // void 		unset_env(char *var);
 
 void		ms_exit(t_params *params, int code);
-void 	run_builtin(t_params *params, t_list *cmd_lst);
+int 	run_builtin(t_params *params, t_list *cmd_lst);
 
 
 
@@ -70,6 +70,7 @@ int main(int ac, char **av, char **envp)
 	int 		i;
 	ft_memset(&params, 0, sizeof(t_params));
 	
+
 	params.default_io[0] = dup(STDIN_FILENO);
 	params.default_io[1] = dup(STDOUT_FILENO);
 
@@ -109,8 +110,8 @@ int main(int ac, char **av, char **envp)
 	while (true)
 	{
 		free_str(&(params.line));
+		rl_outstream = stderr;
 		params.line = readline("$> ");
-
 		if (!params.env_count)
 		{
 			i = 0;
@@ -120,7 +121,6 @@ int main(int ac, char **av, char **envp)
 			params.env_count = i;
 			set_env("?=0");
 		}
-		// params.line = get_next_line(params.default_io[0]);
 		if (params.line && *params.line)
 		{
 			add_history(params.line);
@@ -157,12 +157,6 @@ int main(int ac, char **av, char **envp)
 
 			// printf("there are a total of %i heredocs\n", params.total_heredocs);
 
-
-			/**
-			 * TODO: check if resolved to empty string(s)?
-			*/
-
-
 			/**
 			 * DONE: Run each child command
 			 * 1) for each cmd in cmd_lst
@@ -177,9 +171,17 @@ int main(int ac, char **av, char **envp)
 
 			// set interactive to false
 			params.interactive = false;
-			run_command(&params, params.cmd_list);
+			int code = run_command(&params, params.cmd_list);
 			// set interactive to true
 			params.interactive = true;
+
+			// printf("received %i in main\n", code);
+			char *result = ft_itoa(code);
+			char *key = ft_strjoin("?=", result);
+			set_env(key);
+			free_str(&key);
+			free_str(&result);
+
 			ft_lstclear(&params.cmd_list, free_cmds);
 		}
 	}
@@ -200,7 +202,7 @@ bool is_builtin(char **argv)
 }
 
 
-void run_command(t_params *params, t_list *cmd_lst)
+int run_command(t_params *params, t_list *cmd_lst)
 {
 	t_cmd *cmd = cmd_lst->content;
 	char **argv = cmd->words;
@@ -210,10 +212,9 @@ void run_command(t_params *params, t_list *cmd_lst)
 
 	if (cmd_lst->next)
 		pipe(p_fd);	// error checking??
-	else if (is_builtin(argv))
+	else if (params->num_cmds == 1 &&  is_builtin(argv))
 	{
-		run_builtin(params, cmd_lst);
-		return ;
+		return run_builtin(params, cmd_lst);
 	}
 	int pid = fork();
 
@@ -224,6 +225,7 @@ void run_command(t_params *params, t_list *cmd_lst)
 		// printf("hello from %i\n", getpid());
 		// printf("\t\t %p %s\n", argv, argv[0]);
 		bool redirect_success = true;
+		int code = 0;
 
 		if (cmd_lst->next)
 		{
@@ -313,7 +315,9 @@ void run_command(t_params *params, t_list *cmd_lst)
 			}
 		}
 
-		if (argv[0])
+		if (is_builtin(argv))
+			code = run_builtin(params, cmd_lst);
+		else if (argv[0])
 		{
 			params->paths = find_paths();
 			char *binpath = check_valid_cmd(params->paths, argv[0]);
@@ -333,57 +337,54 @@ void run_command(t_params *params, t_list *cmd_lst)
 		}
 		free_str(&binpath);
 		if (redirect_success)
-			ms_exit(params, 127);
+			ms_exit(params, code);
 		else
-			ms_exit(params, 1);
+			ms_exit(params, code);
+	}
+	//parent
+	cmd->proc.pid = pid;
 
-		// free all memory
-		// use builtin exit
-		// printf("\t\t %i EXITING\n", getpid());
+	// eventually done at parent level
+
+	if (cmd->num_heredocs > 0)
+	{
+		// ft_putstr_fd("waiting for heredoc\n", STDERR_FILENO);
+		waitpid(pid, &(cmd->proc.exit_status), 0);
+		// ft_putstr_fd("heredoc completed\n", STDERR_FILENO);
+
+	}
+
+	if (cmd_lst->next)
+	{
+		close(p_fd[1]);
+		// printf("executing piped %s\n", ((t_cmd *) cmd_lst->next->content)->words[0]);
+		dup2(p_fd[0], STDIN_FILENO);
+		close(p_fd[0]);
+		run_command(params, cmd_lst->next);
 	}
 	else
 	{
-		//parent
-		cmd->proc.pid = pid;
-
-		// eventually done at parent level
-
-		if (cmd->num_heredocs > 0)
-		{
-			// ft_putstr_fd("waiting for heredoc\n", STDERR_FILENO);
-			waitpid(pid, &(cmd->proc.exit_status), 0);
-			// ft_putstr_fd("heredoc completed\n", STDERR_FILENO);
-
-		}
-
-		if (cmd_lst->next)
-		{
-			close(p_fd[1]);
-			// printf("executing piped %s\n", ((t_cmd *) cmd_lst->next->content)->words[0]);
-			dup2(p_fd[0], STDIN_FILENO);
-			close(p_fd[0]);
-			run_command(params, cmd_lst->next);
-		}
-		// printf("hello from parent of %i\n", pid);
+		// final command!
+		// return stdin to default
 		waitpid(pid, &(cmd->proc.exit_status), 0);
 		cmd->proc.exited = true;
+		// if (isatty(params->default_io[0]))
 
-		if (!cmd_lst->next)
-		{
-			// final command!
+		dup2(params->default_io[0], STDIN_FILENO);
+		// dup2(params->default_io[1], STDOUT_FILENO);
+		// else
+		// 	dup2(open("/dev/tty", O_RDONLY), STDIN_FILENO);
 
-			// return stdin to default
-			dup2(params->default_io[0], STDIN_FILENO);
-			char *res = ft_itoa(WEXITSTATUS(cmd->proc.exit_status));
-			char *key = ft_strjoin("?=", res);
+		// printf("final exit status of %s is %i\n", cmd->words[0], WEXITSTATUS(cmd->proc.exit_status));
 
-			// printf("res: %s, key: %s\n", res, key);
-			set_env(key);
-			free_str(&res);
-			free_str(&key);
-		}
+		return (WEXITSTATUS(cmd->proc.exit_status));
 
 	}
+	// printf("hello from parent of %i\n", pid);
+	waitpid(pid, &(cmd->proc.exit_status), 0);
+	cmd->proc.exited = true;
+	return (WEXITSTATUS(cmd->proc.exit_status));
+
 }
 
 char	*check_valid_cmd(char **paths, char *cmd)
@@ -410,40 +411,6 @@ char	*check_valid_cmd(char **paths, char *cmd)
 	return (binpath);
 }
 
-void	run_child_command(int p_fd[2], char **paths, char **cmd)
-{
-	char	*binpath;
-
-	// printf("attempting to run ");
-	// int i = 0;
-	// while (cmd[i])
-	// 	printf("%s ", cmd[i++]);
-	// printf("\n");
-
-	if (cmd && cmd[0] && paths)
-		binpath = check_valid_cmd(paths, cmd[0]);
-	else
-		binpath = NULL;
-	if (!binpath)
-	{
-		ft_putstr_fd(cmd[0], STDERR_FILENO);
-		ft_putstr_fd(": command not found\n", STDERR_FILENO);
-		close(p_fd[1]);
-		dup2(p_fd[0], STDIN_FILENO);
-		close(p_fd[0]);
-	}
-	else
-	{
-		dup2(p_fd[1], STDOUT_FILENO);
-		close(p_fd[1]);
-		execve(binpath, cmd, NULL);
-		perror("");
-		if (binpath)
-			free(binpath);
-	}
-}
-
-
 char **find_paths(void)
 {
 	char	*paths_var;
@@ -461,14 +428,7 @@ char **find_paths(void)
 	int i = 0;
 	while (paths[i])
 		i++;
-	// paths = ft_realloc(paths, i * sizeof(char *), (i + 1) * sizeof(char *));
-	// paths[i] = getcwd(NULL, 500);
-	// paths[i + 1] = NULL;
+	paths = ft_realloc(paths, (i + 1) * sizeof(char *), (i + 2) * sizeof(char *));
+	paths[i] = getcwd(NULL, 500);
 	return paths;
 }
-
-
-
-/* -------------------------------------------------------------------------- */
-/*                                    UTILS                                   */
-/* -------------------------------------------------------------------------- */
