@@ -67,10 +67,12 @@ typedef struct s_params
 	int			total_heredocs;
 	char		*line;
 	char		**paths;
+	char		**envs;
 	bool		interactive; // default true
 
 	int			env_count;
 	int			default_io[2];
+	int			tty_io[2];
 
 	t_list		*cmd_list;
 }	t_params;

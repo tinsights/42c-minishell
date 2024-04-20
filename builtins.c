@@ -36,19 +36,15 @@ void ms_exit(t_params *params, int code)
 
 	ft_lstclear(&(params->cmd_list), free_cmds);
 
-	int i = 0;
-	while (__environ[i])
-		i++;
-	if (i > params->env_count)
-	{
-		for (int i = params->env_count; __environ[i]; i++)
-			free_str(__environ + i);
-    	free(__environ);
-
-	}
-
+	int i = -1;
+	while (__environ[++i])
+		free_str(__environ + i);
+	free(__environ);
 
 	free_str(&(params->line));
+
+	// close(params->tty_io[0]);
+	// close(params->tty_io[1]);
 	exit(code);
 }
 
