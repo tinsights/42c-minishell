@@ -38,11 +38,14 @@ void 	run_command(t_params *params, t_list *cmd_lst);
 // bool 	valid_env_start(char *line);	
 // bool 	valid_env_char(char c);
 void		set_env(char * str);
-void 		print_env(void);
-void 		ms_export(char *arg);
-void		ms_exit(t_params *params, int code);
+// void 		print_env(void);
+// void 		ms_export(char *arg);
+// void 		unset_env(char *var);
 
-void 	unset_env(char *var);
+void		ms_exit(t_params *params, int code);
+void 	run_builtin(t_params *params, t_list *cmd_lst);
+
+
 
 
 // if recvd sigiint
@@ -196,40 +199,6 @@ bool is_builtin(char **argv)
 	|| !ft_strncmp(argv[0], "exit", 5));
 }
 
-
-void run_builtin(t_params *params, t_list *cmd_lst)
-{
-	t_cmd *cmd = cmd_lst->content;
-	char **argv = cmd->words;
-
-	if (!ft_strncmp(argv[0], "export", 7))
-	{
-		int i = 1;
-		while (argv[i])
-		{
-			ms_export(argv[i]);
-			i++;
-		}
-	}
-	else if (!ft_strncmp(argv[0], "env", 4))
-	{
-		print_env();
-	}
-	else if (!ft_strncmp(argv[0], "exit", 5))
-	{
-		ms_exit(params, 0);
-	}
-	else if (!ft_strncmp(argv[0], "unset", 6))
-	{
-		// run unset
-		int i = 1;
-		while (argv[i])
-		{
-			unset_env(argv[i]);
-			i++;
-		}
-	}
-}
 
 void run_command(t_params *params, t_list *cmd_lst)
 {

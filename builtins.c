@@ -111,24 +111,26 @@ void ms_export(char *arg)
 
 
 	equals_sign = ft_strchr(arg, '=');
-	key = ft_substr(arg, 0, equals_sign - arg);
+    if (!equals_sign)
+        key = ft_strdup(arg);
+    else
+	    key = ft_substr(arg, 0, equals_sign - arg);
 
-	// printf("key: %s\n", key);
 	for (int i = 0; key[i]; i++)
 		if (!valid_env_char(key[i]))
 			valid = false;
 
-	if (valid)
+	if (!valid)
 	{
-		value = ft_strdup(equals_sign + 1);
-		if (valid && value != NULL)
-				set_env(arg);
-	}
-	else
-	{
-		ft_putstr_fd("Invalid var: ", 2);
+        ft_putstr_fd("Invalid var: ", 2);
 		ft_putstr_fd(key, 2);
 		ft_putstr_fd("\n", 2);
+	}
+	else if (equals_sign)
+	{
+        value = ft_strdup(equals_sign + 1);
+		if (valid && value != NULL)
+				set_env(arg);
 	}
 
 	free_str(&key);
@@ -140,7 +142,42 @@ void print_env(void)
     int i = 0;
     while (__environ[i])
     {
-        printf("%s\n", __environ[i]);
+        if (ft_strchr(__environ[i], '='))
+            printf("%s\n", __environ[i]);
         i++;
     }
+}
+
+void run_builtin(t_params *params, t_list *cmd_lst)
+{
+	t_cmd *cmd = cmd_lst->content;
+	char **argv = cmd->words;
+
+	if (!ft_strncmp(argv[0], "export", 7))
+	{
+		int i = 1;
+		while (argv[i])
+		{
+			ms_export(argv[i]);
+			i++;
+		}
+	}
+	else if (!ft_strncmp(argv[0], "env", 4))
+	{
+		print_env();
+	}
+	else if (!ft_strncmp(argv[0], "exit", 5))
+	{
+		ms_exit(params, 0);
+	}
+	else if (!ft_strncmp(argv[0], "unset", 6))
+	{
+		// run unset
+		int i = 1;
+		while (argv[i])
+		{
+			unset_env(argv[i]);
+			i++;
+		}
+	}
 }
