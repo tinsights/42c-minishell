@@ -71,17 +71,11 @@ int main(int ac, char **av, char **envp)
 	ft_memset(&params, 0, sizeof(t_params));
 	
 
-	// params.default_io[0] = dup(STDIN_FILENO);
-	// params.default_io[1] = dup(STDOUT_FILENO);
+	params.default_io[0] = dup(STDIN_FILENO);
+	params.default_io[1] = dup(STDOUT_FILENO);
 
-	// params.tty_io[0] = open("/dev/tty", O_RDONLY);
-	// params.tty_io[1] = open("/dev/tty", O_WRONLY);
-	// if (!isatty(params.default_io[1]))
-	// {
-	// 	// write(2, "xx\n", 3);
-	// 	dup2(params.tty_io[1], STDOUT_FILENO);
-	// 	close(params.tty_io[1]);
-	// }
+	rl_outstream = stderr;
+
 
 	/* -------------------------------------------------------------------------- */
 	/*                         Process ENVP, create PATHS                         */
@@ -95,22 +89,6 @@ int main(int ac, char **av, char **envp)
 	 * will not change PATHS searched durin cmd execution.
 	 * 
 	*/
-	
-    // environ = (char **) ft_calloc(i + 1, sizeof(char *));
-	// // i = 0;
-
-	// while (envp[i])
-	// {
-	// 	// printf("xx %s\n", envp[i]);
-    // 	environ[i] = ft_strdup(envp[i]);
-	// 	i++;
-	// }
-
-	// __environ = NULL;
-
-	
-	// printf("default: %i \n", rl_prefer_env_winsize);
-	// rl_prefer_env_winsize = 1;
 	/* -------------------------------------------------------------------------- */
 	/*                            Read line with prompt                           */
 	/* -------------------------------------------------------------------------- */
@@ -118,11 +96,9 @@ int main(int ac, char **av, char **envp)
 	while (true)
 	{
 		free_str(&(params.line));
-		// rl_outstream = stderr;
 		params.line = readline("$> ");
 		if (!params.env_count)
 		{
-
 			i = 0;
 			while (envp[i])
 				i++;  // find the end of __
@@ -135,7 +111,6 @@ int main(int ac, char **av, char **envp)
 				params.envs[i] = ft_strdup(envp[i]);
 
 			__environ = params.envs;
-
 		}
 		if (params.line && *params.line)
 		{
@@ -191,7 +166,7 @@ int main(int ac, char **av, char **envp)
 			// set interactive to true
 			params.interactive = true;
 
-			printf("%i: received %i in main\n", getpid(), code);
+			dprintf(2, "%i: received %i in main\n", getpid(), code);
 			char *result = ft_itoa(code);
 			char *key = ft_strjoin("?=", result);
 			set_env(key);
@@ -238,35 +213,19 @@ int run_command(t_params *params, t_list *cmd_lst)
 	}
 	int pid = fork();
 
-	// else, run single builtin?
-
-	static int default_stdin;
-	static int default_stdout;
-
-	if (!default_stdin)
-		default_stdin = dup(STDIN_FILENO);
-	if (!default_stdout)
-		default_stdout = dup(STDOUT_FILENO);
-
 	if (pid == 0)
 	{
-		// printf("hello from %i\n", getpid());
-		// printf("\t\t %p %s\n", argv, argv[0]);
 		bool redirect_success = true;
 		int code = 0;
 
 		if (cmd_lst->next)
 		{
 			close(p_fd[0]);
-			// printf("executing piped %s\n", argv[0]);
 			dup2(p_fd[1], STDOUT_FILENO);
 			close(p_fd[1]);
 		}
-		// else
-		// {
-		// 	dup2(default_stdout, STDOUT_FILENO);
-		// 	// close(default_stdout);
-		// }
+		else
+			dup2(params->default_io[1], STDOUT_FILENO);
 
 
 		// process redirects
@@ -326,14 +285,14 @@ int run_command(t_params *params, t_list *cmd_lst)
 					pipe(heredoc_pipe);
 					char *delim = redir.file;
 					int len = ft_strlen(delim);
-					char *line = get_next_line(default_stdin);
+					char *line = get_next_line(params->default_io[0]);
 					while (line)
 					{
 						if (!ft_strncmp(line, delim, len))
 							break ;
 						write(heredoc_pipe[1], line, ft_strlen(line));
 						free_str(&line);
-						line = get_next_line(default_stdin);
+						line = get_next_line(params->default_io[0]);
 					}
 					dup2(heredoc_pipe[0], STDIN_FILENO);
 					close(heredoc_pipe[0]);
@@ -388,28 +347,13 @@ int run_command(t_params *params, t_list *cmd_lst)
 		// printf("executing piped %s\n", ((t_cmd *) cmd_lst->next->content)->words[0]);
 		dup2(p_fd[0], STDIN_FILENO);
 		close(p_fd[0]);
-		run_command(params, cmd_lst->next);
+		return run_command(params, cmd_lst->next);
 	}
 	else
 	{
 		// final command!
-		// return stdin to default
-		waitpid(pid, &(cmd->proc.exit_status), 0);
-		cmd->proc.exited = true;
-		// if (isatty(params->default_io[0]))
-
-		dup2(default_stdin, STDIN_FILENO);
-		// close(default_stdin);
-		// dup2(params->default_io[1], STDOUT_FILENO);
-		// else
-		// 	dup2(open("/dev/tty", O_RDONLY), STDIN_FILENO);
-
-		// printf("final exit status of %s is %i\n", cmd->words[0], WEXITSTATUS(cmd->proc.exit_status));
-
-		return (WEXITSTATUS(cmd->proc.exit_status));
-
+		dup2(params->default_io[0], STDIN_FILENO);
 	}
-	// printf("hello from parent of %i\n", pid);
 	waitpid(pid, &(cmd->proc.exit_status), 0);
 	cmd->proc.exited = true;
 	return (WEXITSTATUS(cmd->proc.exit_status));

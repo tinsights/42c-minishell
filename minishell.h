@@ -72,7 +72,7 @@ typedef struct s_params
 
 	int			env_count;
 	int			default_io[2];
-	int			tty_io[2];
+	// int			tty_io[2];
 
 	t_list		*cmd_list;
 }	t_params;

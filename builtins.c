@@ -43,6 +43,7 @@ void ms_exit(t_params *params, int code)
 
 	free_str(&(params->line));
 
+	rl_clear_history();
 	// close(params->tty_io[0]);
 	// close(params->tty_io[1]);
 	exit(code);
@@ -152,13 +153,13 @@ int run_builtin(t_params *params, t_list *cmd_lst)
 {
 	t_cmd   *cmd = cmd_lst->content;
 	char    **argv = cmd->words;
-    int     exit_code = 0;
+    int     code = 0;
 
 	if (!ft_strncmp(argv[0], "export", 7))
 	{
 		int i = 0;
 		while (argv[++i])
-			exit_code |=  ms_export(argv[i]);
+			code |=  ms_export(argv[i]);
 	}
 	else if (!ft_strncmp(argv[0], "env", 4))
 	{
@@ -180,6 +181,6 @@ int run_builtin(t_params *params, t_list *cmd_lst)
 			i++;
 		}
 	}
-    printf("\t\tbuiltin exitin with code %i\n", exit_code);
-    return exit_code;
+    printf("\t\tbuiltin exitin with code %i\n", code);
+    return code;
 }
