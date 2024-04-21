@@ -46,6 +46,9 @@ void		ms_exit(t_params *params, int code);
 int 	run_builtin(t_params *params, t_list *cmd_lst);
 
 
+void	process_heredocs(t_params* params, t_list	*cmd_lst);
+
+
 
 
 // if recvd sigiint
@@ -61,8 +64,14 @@ int 	run_builtin(t_params *params, t_list *cmd_lst);
 // display new promt
 
 
-
-#include <string.h>
+void handle_sigint(int sig)
+{
+	// rl_on_new_line();
+	ft_putstr_fd("\n", 2);
+	rl_on_new_line();
+	rl_replace_line("", 0);
+	rl_redisplay();
+}
 
 int main(int ac, char **av, char **envp)
 {
@@ -76,19 +85,10 @@ int main(int ac, char **av, char **envp)
 
 	rl_outstream = stderr;
 
+	struct sigaction sa;
+	sa.sa_handler = &handle_sigint;
+	sigaction(SIGINT, &sa, NULL);
 
-	/* -------------------------------------------------------------------------- */
-	/*                         Process ENVP, create PATHS                         */
-	/* -------------------------------------------------------------------------- */
-	/**
-	 * TODO:
-	 * paths should be ascertained 
-	 * right before cmd execution.
-	 * 
-	 * currently, editing PATHS via unset / export
-	 * will not change PATHS searched durin cmd execution.
-	 * 
-	*/
 	/* -------------------------------------------------------------------------- */
 	/*                            Read line with prompt                           */
 	/* -------------------------------------------------------------------------- */
@@ -111,31 +111,27 @@ int main(int ac, char **av, char **envp)
 				params.envs[i] = ft_strdup(envp[i]);
 
 			__environ = params.envs;
+			if (!getenv("?"))
+				set_env("?=0");
 		}
 		if (params.line && *params.line)
 		{
 			add_history(params.line);
-			// parse_quotes(params.line, &params.words);
 
-			// i = 0;
-			// while (params.words[i])
-			// 	printf("%s\n", params.words[i++]);
-
-			/** DONE: valid syntax check
-			 *  > < << and >> must be followed by at least one word
-			 *  | must be preceded by and followed by at least one word or valid redir
-			*/
 			params.num_cmds = count_cmds(&params);
 			if (params.num_cmds <= 0)
 				continue ;
 			/** DONE: Prepare linked list of simple commands
 			 * with output and input redirects
-			 * TODO: parse heredoc?
+			 * 
 			*/
 			create_cmds(&params);
 
-			// create_words(&params);
+			// printf("there are a total of %i heredocs\n", params.total_heredocs);
 
+			
+			
+			
 			/**
 			 * DOING: Process heredoc
 			 * set heredoc_processing = true;
@@ -145,8 +141,12 @@ int main(int ac, char **av, char **envp)
 			 * 
 			 * once done, set hereodc_proc = false
 			*/
+			params.interactive = false;
 
-			// printf("there are a total of %i heredocs\n", params.total_heredocs);
+			process_heredocs(&params, params.cmd_list);
+
+			// check if heredoc_interrupt == true
+			// if yes, skip
 
 			/**
 			 * DONE: Run each child command
@@ -156,17 +156,15 @@ int main(int ac, char **av, char **envp)
 			 * 4) if child, execve cmd words
 			 * 5) if parent, recurse
 			*/
+			// dprintf(2, " done processing heredocs \n");
+			sa.sa_handler = SIG_IGN;
+			sigaction(SIGINT, &sa, NULL);
+			
 
-			// check if heredoc_interrupt == true
-			// if yes, skip
-
-			// set interactive to false
-			params.interactive = false;
 			int code = run_command(&params, params.cmd_list);
-			// set interactive to true
 			params.interactive = true;
 
-			dprintf(2, "%i: received %i in main\n", getpid(), code);
+			// dprintf(2, "%i: received %i in main\n", getpid(), code);
 			char *result = ft_itoa(code);
 			char *key = ft_strjoin("?=", result);
 			set_env(key);
@@ -174,6 +172,8 @@ int main(int ac, char **av, char **envp)
 			free_str(&result);
 
 			ft_lstclear(&params.cmd_list, free_cmds);
+			sa.sa_handler = &handle_sigint;
+			sigaction(SIGINT, &sa, NULL);
 		}
 		else if (!params.line)
 		{
@@ -182,6 +182,51 @@ int main(int ac, char **av, char **envp)
 	}
 
 	free_str(&(params.line));
+}
+
+void	process_heredocs(t_params* params, t_list	*cmd_lst)
+{
+	if (!cmd_lst)
+		return;
+
+
+	t_cmd *cmd = cmd_lst->content;
+
+	t_redir *redirs = cmd->redirs;
+
+	int i = 0;
+	int processed = 0;
+
+
+	while (i < cmd->num_redirects)
+	{
+		if (redirs[i].type == heredoc)
+		{
+			int heredoc_pipe[2];
+			pipe(heredoc_pipe);
+			char *delim = redirs[i].file;
+			int len = ft_strlen(delim);
+			char *line = get_next_line(params->default_io[0]);
+			while (line)
+			{
+				if (!ft_strncmp(line, delim, len))
+					break ;
+				write(heredoc_pipe[1], line, ft_strlen(line));
+				free_str(&line);
+				line = get_next_line(params->default_io[0]);
+			}
+			if (processed)
+				close(cmd->heredoc_fd);
+			cmd->heredoc_fd = dup(heredoc_pipe[0]);
+			close(heredoc_pipe[0]);
+			close(heredoc_pipe[1]);
+			free_str(&line);
+			get_next_line(-1);
+			processed++;
+		}
+		i++;
+	}
+	process_heredocs(params, cmd_lst->next);
 }
 
 bool is_builtin(char **argv)
@@ -226,8 +271,6 @@ int run_command(t_params *params, t_list *cmd_lst)
 		}
 		else
 			dup2(params->default_io[1], STDOUT_FILENO);
-
-
 		// process redirects
 		if (cmd->num_redirects > 0 && cmd->redirs)
 		{
@@ -281,25 +324,8 @@ int run_command(t_params *params, t_list *cmd_lst)
 				}
 				else if (redir.type == heredoc)
 				{
-					int heredoc_pipe[2];
-					pipe(heredoc_pipe);
-					char *delim = redir.file;
-					int len = ft_strlen(delim);
-					char *line = get_next_line(params->default_io[0]);
-					while (line)
-					{
-						if (!ft_strncmp(line, delim, len))
-							break ;
-						write(heredoc_pipe[1], line, ft_strlen(line));
-						free_str(&line);
-						line = get_next_line(params->default_io[0]);
-					}
-					dup2(heredoc_pipe[0], STDIN_FILENO);
-					close(heredoc_pipe[0]);
-					close(heredoc_pipe[1]);
-					free_str(&line);
-					get_next_line(-1);
-
+					dup2(cmd->heredoc_fd, STDIN_FILENO);
+					close(cmd->heredoc_fd);
 				}
 				redir_ctr++;
 			}
@@ -314,6 +340,9 @@ int run_command(t_params *params, t_list *cmd_lst)
 			if (binpath && redirect_success)
 			{
 				// printf("\t\t EXECVE  %s\n", binpath);
+				struct sigaction sa;
+				sa.sa_handler = SIG_DFL;
+				sigaction(SIGINT, &sa, NULL);
 				execve(binpath, argv, __environ);	// do we need to pass in envp?
 				perror("");
 			}
@@ -330,30 +359,15 @@ int run_command(t_params *params, t_list *cmd_lst)
 	}
 	//parent
 	cmd->proc.pid = pid;
-
-	// eventually done at parent level
-
-	if (cmd->num_heredocs > 0)
-	{
-		// ft_putstr_fd("waiting for heredoc\n", STDERR_FILENO);
-		waitpid(pid, &(cmd->proc.exit_status), 0);
-		// ft_putstr_fd("heredoc completed\n", STDERR_FILENO);
-
-	}
-
 	if (cmd_lst->next)
 	{
 		close(p_fd[1]);
-		// printf("executing piped %s\n", ((t_cmd *) cmd_lst->next->content)->words[0]);
 		dup2(p_fd[0], STDIN_FILENO);
 		close(p_fd[0]);
 		return run_command(params, cmd_lst->next);
 	}
 	else
-	{
-		// final command!
 		dup2(params->default_io[0], STDIN_FILENO);
-	}
 	waitpid(pid, &(cmd->proc.exit_status), 0);
 	cmd->proc.exited = true;
 	return (WEXITSTATUS(cmd->proc.exit_status));

@@ -168,7 +168,7 @@ int run_builtin(t_params *params, t_list *cmd_lst)
 	else if (!ft_strncmp(argv[0], "exit", 5))
 	{
         if (params->num_cmds == 1 && !cmd_lst->next)
-            printf("exit\n");
+            ft_putstr_fd("exit\n", STDERR_FILENO);
 		ms_exit(params, 0);
 	}
 	else if (!ft_strncmp(argv[0], "unset", 6))

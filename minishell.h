@@ -23,6 +23,8 @@
 
 #include <fcntl.h> // open
 
+#include <signal.h>
+
 typedef enum e_redir_type
 {
 	input,
@@ -52,12 +54,12 @@ typedef struct s_cmd
 	int		num_redirects;
 	int		num_heredocs;
 
-	int		io[2];
+	int		heredoc_fd;
 
 	char	*line;
 	char	**words;
+
 	t_redir	*redirs;
-	t_list	*cmd_env_lst;
 }	t_cmd;
 
 
