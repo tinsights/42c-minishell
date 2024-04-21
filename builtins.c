@@ -44,8 +44,8 @@ void ms_exit(t_params *params, int code)
 	free_str(&(params->line));
 
 	rl_clear_history();
-	// close(params->tty_io[0]);
-	// close(params->tty_io[1]);
+	close(params->default_io[0]);
+	close(params->default_io[1]);
 	exit(code);
 }
 
@@ -93,12 +93,11 @@ void set_env(char *var)
 	}
 	if (!__environ[i])
 	{
-		__environ = ft_realloc(__environ, i * sizeof(char *), (i + 2) * sizeof(char *));
+		__environ = ft_realloc(__environ, (i + 1) * sizeof(char *), (i + 2) * sizeof(char *));
 		__environ[i] = ft_strdup(var);
 		__environ[i + 1] = NULL;
 	}
 	free(key);
-
 }
 
 int ms_export(char *arg)

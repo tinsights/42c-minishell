@@ -55,17 +55,6 @@ void free_cmds(void *ptr)
 	char **words = cmd->words;
 	t_redir *redirects = cmd->redirs;
 
-	char *types[4] = {"input", "append", "trunc", "heredoc"};
-
-
-	t_proc proc = cmd->proc;
-
-	if (WIFEXITED(proc.exit_status))
-	{
-		// printf("%i for command %s exited with status %i\n", proc.pid, words[0], WEXITSTATUS(proc.exit_status));
-	}
-	else
-		printf("PROCESS %i command %s did not exit\n", proc.pid, words[0]);
 	int i = 0;
 	while (i < cmd->num_words)
 	{
@@ -81,6 +70,10 @@ void free_cmds(void *ptr)
 		free_str(&(redirects[i].file));
 		i++;
 	}
+
+	if (cmd->heredoc_fd > 0)
+		close(cmd->heredoc_fd);
+	
 	safe_free((void **) &words);
 	safe_free((void **) &redirects);
 	safe_free((void **) &(cmd->line));

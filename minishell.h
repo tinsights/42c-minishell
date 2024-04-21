@@ -25,6 +25,8 @@
 
 #include <signal.h>
 
+#include <errno.h>
+
 typedef enum e_redir_type
 {
 	input,
@@ -70,11 +72,11 @@ typedef struct s_params
 	char		*line;
 	char		**paths;
 	char		**envs;
+	char		**orig_envp;
 	bool		interactive; // default true
 
 	int			env_count;
-	int			default_io[2];
-	// int			tty_io[2];
+	int			default_io[3];
 
 	t_list		*cmd_list;
 }	t_params;
