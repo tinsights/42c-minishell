@@ -39,6 +39,7 @@ typedef struct s_redir
 {
 	char			*file;
 	t_redir_type	type;
+	bool			quoted;
 } t_redir;
 
 typedef struct s_proc

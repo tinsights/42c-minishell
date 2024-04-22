@@ -139,122 +139,132 @@ char *get_env_key(char *line)
 }
 
 
+int		env_len(char **line_ptr, char qstart, bool is_heredoc);
 
-int		len_to_alloc(char **line_ptr, char qstart)
+int		len_to_alloc(char **line_ptr, char qstart, bool is_heredoc)
 {
 	if (!qstart && (!**line_ptr || is_redirect(*line_ptr) || is_space(**line_ptr)))
 		return (0);
-
 	if (qstart && **line_ptr == qstart)
 	{
 		(*line_ptr)++;
 		qstart = 0;
 	}
-
 	if (!qstart && (!**line_ptr || is_redirect(*line_ptr) || is_space(**line_ptr)))
 		return (1);
-	else if (!qstart && **line_ptr == '\'')
+	else if (!qstart && (**line_ptr == '\'' || **line_ptr == '"'))
 	{
 		(*line_ptr)++;
-		return (len_to_alloc(line_ptr, '\''));
+		return (len_to_alloc(line_ptr, **line_ptr, is_heredoc));
 	}
-	else if (!qstart && **line_ptr == '"')
-	{
-		(*line_ptr)++;
-		return (len_to_alloc(line_ptr, '"'));
-
-	}
-	else if (qstart != '\'' && valid_env_start(*line_ptr))
-	{
-		char *var = get_env_key(*line_ptr);
-		int	key_len = 0;
-		int len = 0;
-
-		// printf("\t\t VAR: %s\n", var);
-		char *value = getenv(var);
-		if (value)
-		{
-			// printf("\t\t VALUE: %s\n", value);
-			len = ft_strlen(value);
-		}
-		key_len = ft_strlen(var) + 1;
-		*line_ptr += key_len;
-		free_str(&var);
-		// printf("\t\t env var len to alloc: %i\n", len);
-		return (len + len_to_alloc(line_ptr, qstart));
-	}
+	else if (qstart != '\'' && valid_env_start(*line_ptr) && !is_heredoc)
+		return (env_len(line_ptr, qstart, is_heredoc));
 	else
 	{	
 		(*line_ptr)++;
-		return (1 + len_to_alloc(line_ptr, qstart));
+		return (1 + len_to_alloc(line_ptr, qstart, is_heredoc));
 	}
 }
-
-void	word_copy(char **line_ptr, char qstart, char *word)
+int		env_len(char **line_ptr, char qstart, bool is_heredoc)
 {
-	if (qstart && **line_ptr == qstart)
+	char *var = get_env_key(*line_ptr);
+	int	key_len = 0;
+	int len = 0;
+
+	char *value = getenv(var);
+	if (value)
+		len = ft_strlen(value);
+	key_len = ft_strlen(var) + 1;
+	*line_ptr += key_len;
+	free_str(&var);
+	return (len + len_to_alloc(line_ptr, qstart, is_heredoc));
+}
+
+bool	end_of_line(char **line_ptr, char *qstart)
+{
+	if (*qstart && **line_ptr == *qstart)
 	{
 		(*line_ptr)++;
-		qstart = 0;
+		*qstart = 0;
 	}
+	return (!*qstart && (!**line_ptr || is_redirect(*line_ptr) || is_space(**line_ptr)));
+}
+bool handle_env_copy(char **line_ptr, char qstart, char *word, bool is_heredoc);
 
-	if (!qstart && (!**line_ptr || is_redirect(*line_ptr) || is_space(**line_ptr)))
+bool	word_copy(char **line_ptr, char qstart, char *word, bool is_heredoc)
+{
+
+	static bool quoted;
+	bool		result;
+	
+	if (end_of_line(line_ptr, &qstart))
 	{
-		// size = 0;
-		return ;
+		result = quoted;
+		quoted = false;
+		return result;
 	}
-
-	else if (!qstart && **line_ptr == '\'')
+	else if (!qstart && (**line_ptr == '\'' || **line_ptr == '"'))
 	{
+		quoted = true;
 		(*line_ptr)++;
-		return (word_copy(line_ptr, '\'', word));
+		return (word_copy(line_ptr, **line_ptr, word, is_heredoc));
 	}
-	else if (!qstart && **line_ptr == '"')
-	{
-		(*line_ptr)++;
-		return (word_copy(line_ptr, '"', word));
-	}
-	else if (qstart != '\'' && valid_env_start(*line_ptr))
-	{
-		char *var = get_env_key(*line_ptr);
-		int	key_len = 0;
-		int len = 0;
-
-		// printf("\t\t VAR: %s\n", var);
-		char *value = getenv(var);
-		if (value)
-		{
-			// printf("\t\t VALUE: %s\n", value);
-			len = ft_strlen(value);
-			ft_strlcpy(word, value, len + 1);
-			word += len;
-		}
-		key_len = ft_strlen(var) + 1;
-		*line_ptr += key_len;
-		free_str(&var);
-		// printf("\t\t env var len to alloc: %i\n", len);
-		return (word_copy(line_ptr, qstart, word));
-	}
+	else if (qstart != '\'' && valid_env_start(*line_ptr) && !is_heredoc)
+		return (handle_env_copy(line_ptr, qstart, word, is_heredoc));
 	else
 	{
 		*word = **line_ptr;
 		(*line_ptr)++;
 		word++;
-		return (word_copy(line_ptr, qstart, word));
+		return (word_copy(line_ptr, qstart, word, is_heredoc));
 	}
 }
+bool handle_env_copy(char **line_ptr, char qstart, char *word, bool is_heredoc)
+{
+	char *var = get_env_key(*line_ptr);
+	int	key_len = 0;
+	int len = 0;
+	char *value = getenv(var);
+	if (value)
+	{
+		len = ft_strlen(value);
+		ft_strlcpy(word, value, len + 1);
+		word += len;
+	}
+	key_len = ft_strlen(var) + 1;
+	*line_ptr += key_len;
+	free_str(&var);
+	return (word_copy(line_ptr, qstart, word, is_heredoc));
+}
 
+void parse_redirect(t_cmd *cmd, char **line_ptr)
+{
+	t_redir *redirs = cmd->redirs;
+
+	t_redir_type type = get_redir_type((*line_ptr));
+	if (type == heredoc)
+		cmd->num_heredocs++;
+	(*line_ptr) += is_redirect((*line_ptr));
+	while (is_space(*(*line_ptr)))
+		(*line_ptr)++;
+	char *copy = (*line_ptr);
+	int len = len_to_alloc(line_ptr, 0, type == heredoc);
+	redirs = ft_realloc(redirs, cmd->num_redirects * sizeof(t_redir), (cmd->num_redirects + 1) * sizeof(t_redir));
+	char *redir_file = ft_calloc(len + 1, sizeof(char));
+	bool quoted = word_copy(&copy, 0, redir_file, type == heredoc);
+	redirs[cmd->num_redirects].file = redir_file;
+	redirs[cmd->num_redirects].type = type;
+	redirs[cmd->num_redirects].quoted = quoted;
+	cmd->num_redirects++;
+	cmd->redirs = redirs;
+}
 
 void parse_cmd(t_list *cmd_lst)
 {
 	t_cmd *cmd = (t_cmd *) cmd_lst->content;
 	char *line = cmd->line;
-	// printf("line : %s\n", cmd->line);
-	// int i = 0;
-
 	char **words = ft_calloc(1, sizeof(char **));
-	// char **redirects = ft_calloc(1, sizeof(char **));
-	t_redir *redirs = cmd->redirs;
+
 	while (*line)
 	{
 		if (*line && is_space(*line))
@@ -264,51 +274,23 @@ void parse_cmd(t_list *cmd_lst)
 		}
 		if (is_redirect(line))
 		{
-			t_redir_type type = get_redir_type(line);
-
-
-			if (type == heredoc)
-				cmd->num_heredocs++;
-			// skip and process redirect
-			// since we have verified that it isn't final
-			line += is_redirect(line);
-			while (is_space(*line))
-				line++;
-			char *copy = line;
-			int len = len_to_alloc(&line, 0);
-			// printf("allocating pointer of len %i\n", len);
-			// printf("line is crrently %s\n", line);
-			redirs = ft_realloc(redirs, cmd->num_redirects * sizeof(t_redir), (cmd->num_redirects + 1) * sizeof(t_redir));
-			char *redir_file = ft_calloc(len + 1, sizeof(char));
-			word_copy(&copy, 0, redir_file);
-
-			redirs[cmd->num_redirects].file = redir_file;
-			redirs[cmd->num_redirects].type = type;
-
-			cmd->num_redirects++;
-			// printf("redirect len to alloc: %i\n", len);
+			parse_redirect(cmd, &line);
 		}
 		else
 		{
 			char *copy = line;
-			int len = len_to_alloc(&line, 0);
+			int len = len_to_alloc(&line, 0, false);
 			if (len)
 			{
-				// char *word = ft_calloc(len, sizeof(char));
-				// printf("allocating pointer of len %i\n", len);
-				// printf("line is crrently %s\n", line);
 				char *word = ft_calloc(len + 1, sizeof(char));
 				words[cmd->num_words] = word;
-				word_copy(&copy, 0, words[cmd->num_words]);
+				word_copy(&copy, 0, words[cmd->num_words], false);
 				cmd->num_words++;
 				words = ft_realloc(words, cmd->num_words * sizeof(char*), (cmd->num_words + 1) * sizeof(char*));
 			}
 		}
-		// printf("i: %i. line: %s\n", i,  line + i);
 	}
 	cmd->words = words;
-	cmd->redirs = redirs;
-	// printf("num words: %i. num redirects: %i\n", cmd->num_words, cmd->num_redirects);
 }
 
 
@@ -348,6 +330,7 @@ void create_cmds(t_params *params)
 
 			node->content = cmd;
 			parse_cmd(node);
+			params->total_heredocs += cmd->num_heredocs;
 			ft_lstadd_back(&params->cmd_list, node);
 		}
 
@@ -365,6 +348,7 @@ void create_cmds(t_params *params)
 
 			node->content = cmd;
 			parse_cmd(node);
+			params->total_heredocs += cmd->num_heredocs;
 			ft_lstadd_back(&params->cmd_list, node);
 		}
 

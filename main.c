@@ -46,6 +46,10 @@ void		ms_exit(t_params *params, int code);
 int 	run_builtin(t_params *params, t_list *cmd_lst);
 
 
+int		len_to_alloc(char **line_ptr, char qstart, bool is_heredoc);
+
+bool	word_copy(char **line_ptr, char qstart, char *word, bool is_heredoc);
+
 void	process_heredocs(t_params* params, t_list	*cmd_lst);
 
 
@@ -73,6 +77,16 @@ void handle_sigint(int sig)
 	code = 130;
 }
 
+
+void set_code(int code)
+{
+	char *result = ft_itoa(code);
+	char *key = ft_strjoin("?=", result);
+	set_env(key);
+	free_str(&key);
+	free_str(&result);
+}
+
 int main(int ac, char **av, char **envp)
 {
 	t_params	params;
@@ -87,20 +101,15 @@ int main(int ac, char **av, char **envp)
 
 	params.default_io[0] = dup(STDIN_FILENO);
 	params.default_io[1] = dup(STDOUT_FILENO);
-	// params.default_io[2] = dup(STDERR_FILENO);
+	params.default_io[2] = dup(STDERR_FILENO);
 	close(STDIN_FILENO);
 	close(STDOUT_FILENO);
-	// close(STDERR_FILENO);
+	close(STDERR_FILENO);
 	rl_catch_signals = 0;
 	readline(NULL);
 	dup2(params.default_io[0], STDIN_FILENO);
 	dup2(params.default_io[1], STDOUT_FILENO);
-	// dup2(params.default_io[2], STDERR_FILENO);
-	// rl_on_new_line();
-	// rl_replace_line("", 0);
-	// rl_redisplay();
-
-
+	dup2(params.default_io[2], STDERR_FILENO);
 
 	if (!params.env_count)
 	{
@@ -118,6 +127,16 @@ int main(int ac, char **av, char **envp)
 		__environ = params.envs;
 		if (!getenv("?"))
 			set_env("?=0");
+
+		if (getenv("SHLVL"))
+		{
+			int lvl = ft_atoi(getenv("SHLVL"));
+			char *result = ft_itoa(lvl + 1);
+			char *key = ft_strjoin("SHLVL=", result);
+			set_env(key);
+			free_str(&key);
+			free_str(&result);
+		}
 	}
 	/* -------------------------------------------------------------------------- */
 	/*                            Read line with prompt                           */
@@ -128,8 +147,11 @@ int main(int ac, char **av, char **envp)
 		sa.sa_handler = &handle_sigint;
 		sigaction(SIGINT, &sa, NULL);
 		free_str(&(params.line));
-		params.line = readline("$> ");
+		params.interactive = true;
 		
+		params.line = readline("minishell$> ");
+		set_code(code);
+
 		if (params.line && *params.line)
 		{
 			add_history(params.line);
@@ -154,7 +176,8 @@ int main(int ac, char **av, char **envp)
 			 * once done, set hereodc_proc = false
 			*/
 			
-			process_heredocs(&params, params.cmd_list);
+			if (params.total_heredocs)
+				process_heredocs(&params, params.cmd_list);
 
 			// check if heredoc_interrupt == true
 			// if yes, skip
@@ -167,20 +190,14 @@ int main(int ac, char **av, char **envp)
 			 * 4) if child, execve cmd words
 			 * 5) if parent, recurse
 			*/
-			if (!code)
+			if (params.interactive)
 			{	
 				sa.sa_handler = SIG_IGN;
 				sigaction(SIGINT, &sa, NULL);
 				code = run_command(&params, params.cmd_list);
-				params.interactive = true;
-
-				dprintf(2, "%i: received %i in main\n", getpid(), code);
+				// dprintf(2, "%i: received %i in main\n", getpid(), code);
 			}
-			char *result = ft_itoa(code);
-			char *key = ft_strjoin("?=", result);
-			set_env(key);
-			free_str(&key);
-			free_str(&result);
+			set_code(code);
 			ft_lstclear(&params.cmd_list, free_cmds);
 		}
 		else if (!params.line)
@@ -195,6 +212,9 @@ void heredoc_sigint(int sig)
 	ft_putstr_fd("\n", STDERR_FILENO);
 	code = 130;
 }
+bool	is_space(char c);
+int		is_redirect(char *line);
+
 
 void	process_heredocs(t_params* params, t_list	*cmd_lst)
 {
@@ -206,6 +226,7 @@ void	process_heredocs(t_params* params, t_list	*cmd_lst)
 	sigaction(SIGINT, &sa, NULL);
 
 	code = 0;
+	params->interactive = false;
 	while (cmd_lst && !code)
 	{
 		t_cmd *cmd = cmd_lst->content;
@@ -220,13 +241,43 @@ void	process_heredocs(t_params* params, t_list	*cmd_lst)
 				pipe(heredoc_pipe);
 				char *delim = redirs[i].file;
 				int len = ft_strlen(delim);
+				ft_putstr_fd(delim, 2);
+				ft_putstr_fd("> ", 2);
 				char *line = get_next_line(params->default_io[0]);
 				while (line)
 				{
 					if (!ft_strncmp(line, delim, len))
 						break ;
-					write(heredoc_pipe[1], line, ft_strlen(line));
+					if (redirs[i].quoted)
+						write(heredoc_pipe[1], line, ft_strlen(line));
+					else
+					{
+						char *line_ref = line;
+						while (line_ref && *line_ref)
+						{
+							if (*line_ref && is_space(*line_ref))
+							{
+								write(heredoc_pipe[1], line_ref, 1);
+								line_ref++;
+								continue ;
+							}
+							if (is_redirect(line_ref))
+							{
+								write(heredoc_pipe[1], line_ref, is_redirect(line_ref));
+								line_ref += is_redirect(line_ref);
+								continue ;
+							}
+							char *copy = line_ref;
+							int len = len_to_alloc(&line_ref, 0, false);
+							char *word = ft_calloc(len + 1, sizeof(char));
+							word_copy(&copy, 0, word, false);
+							write(heredoc_pipe[1], word, ft_strlen(word));
+							free_str(&word);
+						}
+					}
 					free_str(&line);
+					ft_putstr_fd(delim, 2);
+					ft_putstr_fd("> ", 2);
 					line = get_next_line(params->default_io[0]);
 				}
 				if (processed)
@@ -234,7 +285,9 @@ void	process_heredocs(t_params* params, t_list	*cmd_lst)
 				if (line)
 					cmd->heredoc_fd = dup(heredoc_pipe[0]);
 				else
+				{
 					cmd->heredoc_fd = -1;
+				}
 				close(heredoc_pipe[0]);
 				close(heredoc_pipe[1]);
 				free_str(&line);
@@ -245,6 +298,8 @@ void	process_heredocs(t_params* params, t_list	*cmd_lst)
 		}
 		cmd_lst = cmd_lst->next;
 	}
+	set_code(code);
+	params->interactive = !code;
 }
 
 bool is_builtin(char **argv)
@@ -280,7 +335,6 @@ int run_command(t_params *params, t_list *cmd_lst)
 	if (pid == 0)
 	{
 		bool redirect_success = true;
-		int code = 0;
 
 		if (cmd_lst->next)
 		{
@@ -308,6 +362,7 @@ int run_command(t_params *params, t_list *cmd_lst)
 					}
 					else
 					{
+						code = errno;
 						perror(redir.file);
 						redirect_success = false;
 					}
@@ -322,6 +377,7 @@ int run_command(t_params *params, t_list *cmd_lst)
 					}
 					else
 					{
+						code = errno;
 						perror(redir.file);
 						redirect_success = false;
 					}
@@ -336,6 +392,7 @@ int run_command(t_params *params, t_list *cmd_lst)
 					}
 					else
 					{
+						code = errno;
 						perror(redir.file);
 						redirect_success = false;
 					}
@@ -354,7 +411,7 @@ int run_command(t_params *params, t_list *cmd_lst)
 			}
 		}
 
-		if (is_builtin(argv))
+		if (redirect_success && is_builtin(argv))
 			code = run_builtin(params, cmd_lst);
 		else if (argv[0])
 		{
@@ -375,11 +432,6 @@ int run_command(t_params *params, t_list *cmd_lst)
 				ft_putstr_fd(argv[0], STDERR_FILENO);
 				ft_putstr_fd(": command not found\n", STDERR_FILENO);
 				code = 127;
-			}
-			else
-			{
-				perror("");
-				code = errno;
 			}
 		}
 		free_str(&binpath);
