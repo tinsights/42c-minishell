@@ -26,6 +26,7 @@ int		len_to_alloc(char **line_ptr, char qstart, bool is_heredoc);
 bool	word_copy(char **line_ptr, char qstart, char *word, bool is_heredoc);
 void	process_heredocs(t_params *params, t_list *cmd_lst);
 int		g_code;
+
 void	handle_sigint(int sig)
 {
 	ft_putstr_fd("^C\n", STDIN_FILENO);
@@ -77,6 +78,8 @@ bool	run_line(t_params *params)
 		params->sa.sa_handler = SIG_IGN;
 		sigaction(SIGINT, &params->sa, NULL);
 		g_code = run_command(params, params->cmd_list);
+		if (g_code == 130)
+			write(1, "\n", 1);
 	}
 	set_g_code(g_code);
 	ft_lstclear(&params->cmd_list, free_cmds);
@@ -110,18 +113,18 @@ void	init_env(t_params *params, char **envp)
 		free_str(&key);
 		free_str(&result);
 	}
+	set_env("SHELL=minishell");
+
 }
 
 int	main(int ac, char **av, char **envp)
 {
 	t_params	params;
 	int			i;
-	bool		init;
 
 	ft_memset(&params, 0, sizeof(t_params));
 	init_io(&params);
 	init_env(&params, envp);
-	init = false;
 	while (true)
 	{
 		params.sa.sa_handler = &handle_sigint;

@@ -178,5 +178,11 @@ int	run_builtin(t_params *params, t_list *cmd_lst)
 		while (argv[++i])
 			unset_env(argv[i]);
 	}
+	// else if (!ft_strncmp(argv[0], "echo", 5))
+	// {
+
+	// }
+	// else if (!ft_strncmp(argv[0], "pwd", 4))
+	// else if (!ft_strncmp(argv[0], "cd", 3))
 	return (code);
 }
