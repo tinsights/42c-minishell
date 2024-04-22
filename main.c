@@ -362,7 +362,7 @@ int run_command(t_params *params, t_list *cmd_lst)
 					}
 					else
 					{
-						code = errno;
+						code = 1;
 						perror(redir.file);
 						redirect_success = false;
 					}
@@ -377,7 +377,7 @@ int run_command(t_params *params, t_list *cmd_lst)
 					}
 					else
 					{
-						code = errno;
+						code = 1;
 						perror(redir.file);
 						redirect_success = false;
 					}
@@ -392,7 +392,7 @@ int run_command(t_params *params, t_list *cmd_lst)
 					}
 					else
 					{
-						code = errno;
+						code = 1;
 						perror(redir.file);
 						redirect_success = false;
 					}
@@ -411,27 +411,30 @@ int run_command(t_params *params, t_list *cmd_lst)
 			}
 		}
 
-		if (redirect_success && is_builtin(argv))
-			code = run_builtin(params, cmd_lst);
-		else if (argv[0])
+		if (redirect_success)
 		{
-			params->paths = find_paths();
-			char *binpath = check_valid_cmd(params->paths, argv[0]);
-			if (binpath && redirect_success)
+			if ( is_builtin(argv))
+				code = run_builtin(params, cmd_lst);
+			else if (argv[0])
 			{
-				// printf("\t\t EXECVE  %s\n", binpath);
-				struct sigaction sa;
-				sa.sa_handler = SIG_DFL;
-				sigaction(SIGINT, &sa, NULL);
-				execve(binpath, argv, __environ);	// do we need to pass in envp?
-				perror("");
-				code = 2;
-			}
-			else if (redirect_success)
-			{
-				ft_putstr_fd(argv[0], STDERR_FILENO);
-				ft_putstr_fd(": command not found\n", STDERR_FILENO);
-				code = 127;
+				params->paths = find_paths();
+				char *binpath = check_valid_cmd(params->paths, argv[0]);
+				if (binpath && redirect_success)
+				{
+					// printf("\t\t EXECVE  %s\n", binpath);
+					struct sigaction sa;
+					sa.sa_handler = SIG_DFL;
+					sigaction(SIGINT, &sa, NULL);
+					execve(binpath, argv, __environ);	// do we need to pass in envp?
+					perror("");
+					code = 2;
+				}
+				else
+				{
+					ft_putstr_fd(argv[0], STDERR_FILENO);
+					ft_putstr_fd(": command not found\n", STDERR_FILENO);
+					code = 127;
+				}
 			}
 		}
 		free_str(&binpath);

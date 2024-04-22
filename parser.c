@@ -10,22 +10,20 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-
 #include "minishell.h"
 
-int     is_redirect(char *line);
-bool    is_meta(char *line);
-bool    is_space(char c);
-bool 	valid_env_start(char *line);	
-bool 	valid_env_char(char c);
-t_redir_type get_redir_type(char *line);
+int				is_redirect(char *line);
+bool			is_meta(char *line);
+bool			is_space(char c);
+bool			valid_env_start(char *line);
+bool			valid_env_char(char c);
+t_redir_type	get_redir_type(char *line);
 
-void	free_str(char **p);
+void			free_str(char **p);
 
-
-bool pipe_syntax_error(char *line, char *start)
+bool	pipe_syntax_error(char *line, char *start)
 {
-	char *ptr;
+	char	*ptr;
 
 	ptr = line;
 	if (ptr == start || !ptr[1])
@@ -51,9 +49,9 @@ bool pipe_syntax_error(char *line, char *start)
 	return (false);
 }
 
-bool redir_syntax_error(char **line_ptr)
+bool	redir_syntax_error(char **line_ptr)
 {
-	char *line;
+	char	*line;
 
 	if (!ft_strncmp((*line_ptr), "<<", 2) || !ft_strncmp((*line_ptr), ">>", 2))
 		(*line_ptr)++;
@@ -69,9 +67,9 @@ bool redir_syntax_error(char **line_ptr)
 	return (false);
 }
 
-bool invalid_syntax(char **line_ptr, int *cmd_count, char *start)
+bool	invalid_syntax(char **line_ptr, int *cmd_count, char *start)
 {
-	char *line;
+	char	*line;
 
 	line = *line_ptr;
 	if (*line == '\'' || *line == '"')
@@ -90,7 +88,7 @@ bool invalid_syntax(char **line_ptr, int *cmd_count, char *start)
 	}
 	else if (is_redirect(line))
 		if (redir_syntax_error(line_ptr))
-			return(true);
+			return (true);
 	return (false);
 }
 
@@ -116,62 +114,69 @@ int	count_cmds(char *line)
 		else if (*line)
 			line++;
 	}
-	return cmd_count;
+	return (cmd_count);
 }
 
-char *get_env_key(char *line)
+char	*get_env_key(char *line)
 {
-	char *result;
+	char	*result;
+	int		i;
 
-	int i = 1;
-	if(line[i] == '?')
-		return ft_substr(line, 1, 1);
+	i = 1;
+	if (line[i] == '?')
+		return (ft_substr(line, 1, 1));
 	if (line[i] == '_' || ft_isalpha(line[i]))
 	{
 		i++;
 		while (valid_env_char(line[i]))
 			i++;
 		result = ft_substr(line, 1, i - 1);
-		return result;
+		return (result);
 	}
-
 	return (NULL);
 }
 
+int				env_len(char **line_ptr, char qstart, bool is_heredoc);
 
-int		env_len(char **line_ptr, char qstart, bool is_heredoc);
-
-int		len_to_alloc(char **line_ptr, char qstart, bool is_heredoc)
+int	len_to_alloc(char **line_ptr, char qstart, bool is_heredoc)
 {
-	if (!qstart && (!**line_ptr || is_redirect(*line_ptr) || is_space(**line_ptr)))
+	if (!qstart && (!**line_ptr || is_redirect(*line_ptr)
+			|| is_space(**line_ptr)))
 		return (0);
 	if (qstart && **line_ptr == qstart)
 	{
 		(*line_ptr)++;
 		qstart = 0;
 	}
-	if (!qstart && (!**line_ptr || is_redirect(*line_ptr) || is_space(**line_ptr)))
+	if (!qstart && (!**line_ptr || is_redirect(*line_ptr)
+			|| is_space(**line_ptr)))
 		return (1);
 	else if (!qstart && (**line_ptr == '\'' || **line_ptr == '"'))
 	{
+		qstart = **line_ptr;
 		(*line_ptr)++;
-		return (len_to_alloc(line_ptr, **line_ptr, is_heredoc));
+		return (len_to_alloc(line_ptr, qstart, is_heredoc));
 	}
 	else if (qstart != '\'' && valid_env_start(*line_ptr) && !is_heredoc)
 		return (env_len(line_ptr, qstart, is_heredoc));
 	else
-	{	
+	{
 		(*line_ptr)++;
 		return (1 + len_to_alloc(line_ptr, qstart, is_heredoc));
 	}
 }
-int		env_len(char **line_ptr, char qstart, bool is_heredoc)
-{
-	char *var = get_env_key(*line_ptr);
-	int	key_len = 0;
-	int len = 0;
 
-	char *value = getenv(var);
+int	env_len(char **line_ptr, char qstart, bool is_heredoc)
+{
+	char	*var;
+	int		key_len;
+	int		len;
+	char	*value;
+
+	var = get_env_key(*line_ptr);
+	key_len = 0;
+	len = 0;
+	value = getenv(var);
 	if (value)
 		len = ft_strlen(value);
 	key_len = ft_strlen(var) + 1;
@@ -187,27 +192,29 @@ bool	end_of_line(char **line_ptr, char *qstart)
 		(*line_ptr)++;
 		*qstart = 0;
 	}
-	return (!*qstart && (!**line_ptr || is_redirect(*line_ptr) || is_space(**line_ptr)));
+	return (!*qstart && (!**line_ptr || is_redirect(*line_ptr)
+			|| is_space(**line_ptr)));
 }
-bool handle_env_copy(char **line_ptr, char qstart, char *word, bool is_heredoc);
+bool			handle_env_copy(char **line_ptr, char qstart, char *word,
+					bool is_heredoc);
 
 bool	word_copy(char **line_ptr, char qstart, char *word, bool is_heredoc)
 {
-
-	static bool quoted;
+	static bool	quoted;
 	bool		result;
-	
+
 	if (end_of_line(line_ptr, &qstart))
 	{
 		result = quoted;
 		quoted = false;
-		return result;
+		return (result);
 	}
 	else if (!qstart && (**line_ptr == '\'' || **line_ptr == '"'))
 	{
 		quoted = true;
+		qstart = **line_ptr;
 		(*line_ptr)++;
-		return (word_copy(line_ptr, **line_ptr, word, is_heredoc));
+		return (word_copy(line_ptr, qstart, word, is_heredoc));
 	}
 	else if (qstart != '\'' && valid_env_start(*line_ptr) && !is_heredoc)
 		return (handle_env_copy(line_ptr, qstart, word, is_heredoc));
@@ -219,12 +226,19 @@ bool	word_copy(char **line_ptr, char qstart, char *word, bool is_heredoc)
 		return (word_copy(line_ptr, qstart, word, is_heredoc));
 	}
 }
-bool handle_env_copy(char **line_ptr, char qstart, char *word, bool is_heredoc)
+
+bool	handle_env_copy(char **line_ptr, char qstart, char *word,
+		bool is_heredoc)
 {
-	char *var = get_env_key(*line_ptr);
-	int	key_len = 0;
-	int len = 0;
-	char *value = getenv(var);
+	char	*var;
+	int		key_len;
+	int		len;
+	char	*value;
+
+	var = get_env_key(*line_ptr);
+	key_len = 0;
+	len = 0;
+	value = getenv(var);
 	if (value)
 	{
 		len = ft_strlen(value);
@@ -237,34 +251,59 @@ bool handle_env_copy(char **line_ptr, char qstart, char *word, bool is_heredoc)
 	return (word_copy(line_ptr, qstart, word, is_heredoc));
 }
 
-void parse_redirect(t_cmd *cmd, char **line_ptr)
+void	parse_redirect(t_cmd *cmd, char **line_ptr)
 {
-	t_redir *redirs = cmd->redirs;
+	t_redir			*redirs;
+	t_redir			redir;
+	char			*copy;
+	int				len;
 
-	t_redir_type type = get_redir_type((*line_ptr));
-	if (type == heredoc)
+	redirs = cmd->redirs;
+	redir.type = get_redir_type((*line_ptr));
+	if (redir.type == heredoc)
 		cmd->num_heredocs++;
 	(*line_ptr) += is_redirect((*line_ptr));
 	while (is_space(*(*line_ptr)))
 		(*line_ptr)++;
-	char *copy = (*line_ptr);
-	int len = len_to_alloc(line_ptr, 0, type == heredoc);
-	redirs = ft_realloc(redirs, cmd->num_redirects * sizeof(t_redir), (cmd->num_redirects + 1) * sizeof(t_redir));
-	char *redir_file = ft_calloc(len + 1, sizeof(char));
-	bool quoted = word_copy(&copy, 0, redir_file, type == heredoc);
-	redirs[cmd->num_redirects].file = redir_file;
-	redirs[cmd->num_redirects].type = type;
-	redirs[cmd->num_redirects].quoted = quoted;
+	copy = (*line_ptr);
+	len = len_to_alloc(line_ptr, 0, redir.type == heredoc);
+	redirs = ft_realloc(redirs, cmd->num_redirects * sizeof(t_redir),
+			(cmd->num_redirects + 1) * sizeof(t_redir));
+	redir.file = ft_calloc(len + 1, sizeof(char));
+	redir.quoted = word_copy(&copy, 0, redir.file, redir.type == heredoc);
+	redirs[cmd->num_redirects] = redir;
 	cmd->num_redirects++;
 	cmd->redirs = redirs;
 }
 
-void parse_cmd(t_list *cmd_lst)
+void	parse_words(t_cmd *cmd, char **line_ptr)
 {
-	t_cmd *cmd = (t_cmd *) cmd_lst->content;
-	char *line = cmd->line;
-	char **words = ft_calloc(1, sizeof(char **));
+	char	*copy;
+	int		len;
+	char	*word;
 
+	copy = *line_ptr;
+	len = len_to_alloc(line_ptr, 0, false);
+	if (!cmd->words)
+		cmd->words = ft_calloc(1, sizeof(char *));
+	if (len)
+	{
+		word = ft_calloc(len + 1, sizeof(char));
+		cmd->words[cmd->num_words] = word;
+		word_copy(&copy, 0, cmd->words[cmd->num_words], false);
+		cmd->num_words++;
+		cmd->words = ft_realloc(cmd->words, cmd->num_words * sizeof(char *),
+				(cmd->num_words + 1) * sizeof(char *));
+	}
+}
+
+void	parse_cmd(t_list *cmd_lst)
+{
+	t_cmd	*cmd;
+	char	*line;
+
+	cmd = (t_cmd *)cmd_lst->content;
+	line = cmd->line;
 	while (*line)
 	{
 		if (*line && is_space(*line))
@@ -273,40 +312,38 @@ void parse_cmd(t_list *cmd_lst)
 			continue ;
 		}
 		if (is_redirect(line))
-		{
 			parse_redirect(cmd, &line);
-		}
 		else
-		{
-			char *copy = line;
-			int len = len_to_alloc(&line, 0, false);
-			if (len)
-			{
-				char *word = ft_calloc(len + 1, sizeof(char));
-				words[cmd->num_words] = word;
-				word_copy(&copy, 0, words[cmd->num_words], false);
-				cmd->num_words++;
-				words = ft_realloc(words, cmd->num_words * sizeof(char*), (cmd->num_words + 1) * sizeof(char*));
-			}
-		}
+			parse_words(cmd, &line);
 	}
-	cmd->words = words;
 }
 
-
-void create_cmds(t_params *params)
+void	add_cmd(t_params *params, int *total_len, int len)
 {
-	int total_len;
-	char *line;
-	char *start;
+	t_cmd	*cmd;
+	t_list	*node;
+
+	cmd = ft_calloc(1, sizeof(t_cmd));
+	node = ft_calloc(1, sizeof(t_list));
+	cmd->line = ft_substr(params->line, *total_len, len);
+	node->content = cmd;
+	parse_cmd(node);
+	params->total_heredocs += cmd->num_heredocs;
+	ft_lstadd_back(&params->cmd_list, node);
+	*total_len += len + 1;
+}
+
+void	create_cmds(t_params *params)
+{
+	int		total_len;
+	char	*line;
+	char	*start;
 
 	if (!params)
 		return ;
 	line = params->line;
-
 	if (!line)
 		return ;
-
 	params->total_heredocs = 0;
 	total_len = 0;
 	start = line;
@@ -317,41 +354,9 @@ void create_cmds(t_params *params)
 		else if (*line == '"')
 			line = ft_strchr(line + 1, '"');
 		else if (*line == '|')
-		{
-
-			t_cmd *cmd = ft_calloc(1, sizeof(t_cmd));
-			t_list *node = ft_calloc(1, sizeof(t_list));
-
-			int len = line - (start + total_len);
-
-			// printf("len : %i\n", len);
-			cmd->line = ft_substr(params->line, total_len, len);
-			total_len += len + 1;
-
-			node->content = cmd;
-			parse_cmd(node);
-			params->total_heredocs += cmd->num_heredocs;
-			ft_lstadd_back(&params->cmd_list, node);
-		}
-
+			add_cmd(params, &total_len, line - (start + total_len));
 		line++;
 		if (!line[0])
-		{
-			t_cmd *cmd = ft_calloc(1, sizeof(t_cmd));
-			t_list *node = ft_calloc(1, sizeof(t_list));
-
-			int len = line - (start + total_len);
-
-			// printf("total cmd len : %i\n", len);
-			cmd->line = ft_substr(params->line, total_len, len);
-			total_len += len + 1;
-
-			node->content = cmd;
-			parse_cmd(node);
-			params->total_heredocs += cmd->num_heredocs;
-			ft_lstadd_back(&params->cmd_list, node);
-		}
-
+			add_cmd(params, &total_len, line - (start + total_len));
 	}
 }
-

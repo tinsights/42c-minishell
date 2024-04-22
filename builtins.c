@@ -10,55 +10,46 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-
 #include "minishell.h"
 
 void	free_str(char **p);
-void    free_cmds(void *ptr);
+void	free_cmds(void *ptr);
 
+bool	valid_env_char(char c);
 
-bool    valid_env_char(char c);
-
-
-void ms_exit(t_params *params, int code)
+void	ms_exit(t_params *params, int code)
 {
+	int	i;
 
 	if (params->paths)
 	{
-        for (int i = 0; params->paths[i]; i++)
-        {
-            // printf("%s\n", params->paths[i]);
-            free(params->paths[i]);
-        }
-
-        free(params->paths);
+		for (int i = 0; params->paths[i]; i++)
+			free(params->paths[i]);
+		free(params->paths);
 	}
-
 	ft_lstclear(&(params->cmd_list), free_cmds);
-
-	int i = -1;
+	i = -1;
 	while (__environ[++i])
 		free_str(__environ + i);
 	free(__environ);
-
 	free_str(&(params->line));
-
 	rl_clear_history();
 	close(params->default_io[0]);
 	close(params->default_io[1]);
 	exit(code);
 }
 
-void unset_env(char *var)
+void	unset_env(char *var)
 {
-	char *key = ft_strdup(var);
-	char *loc = ft_strchr(key, '=');
-	if (loc) *loc = '\0';  // split the key and value
+	char	*key;
+	char	*loc;
+	int		i;
 
-	// check if key exists in environ
-	// if yes, free and replace
-
-	int i = 0;
+	key = ft_strdup(var);
+	loc = ft_strchr(key, '=');
+	if (loc)
+		*loc = '\0'; 
+	i = 0;
 	while (__environ[i])
 	{
 		if (!ft_strncmp(__environ[i], key, ft_strlen(key)))
@@ -71,17 +62,18 @@ void unset_env(char *var)
 	free(key);
 }
 
-void set_env(char *var)
+void	set_env(char *var)
 {
-    char *key = ft_strdup(var);
-    char *loc = ft_strchr(key, '=');
-    if (loc) *loc = '\0';  // split the key and value
+	char	*key;
+	char	*loc;
+	int		i;
 
-	// check if key exists in environ
-	// if yes, free and replace
-
-	int i = 0;
-	while (__environ[i])
+	key = ft_strdup(var);
+	loc = ft_strchr(key, '=');
+	if (loc)
+		*loc = '\0'; 
+	i = -1;
+	while (__environ[++i])
 	{
 		if (!ft_strncmp(__environ[i], key, ft_strlen(key)))
 		{
@@ -89,97 +81,92 @@ void set_env(char *var)
 			__environ[i] = ft_strdup(var);
 			break ;
 		}
-		i++;
 	}
 	if (!__environ[i])
 	{
-		__environ = ft_realloc(__environ, (i + 1) * sizeof(char *), (i + 2) * sizeof(char *));
+		__environ = ft_realloc(__environ, (i + 1) * sizeof(char *), (i + 2)
+				* sizeof(char *));
 		__environ[i] = ft_strdup(var);
-		__environ[i + 1] = NULL;
 	}
 	free(key);
 }
 
-int ms_export(char *arg)
+int	ms_export(char *arg)
 {
-	char *key = NULL;
-	char *value = NULL;
-	char *equals_sign = NULL;
-	bool valid = true;
+	char	*key;
+	char	*value;
+	char	*equals_sign;
+	bool	valid;
+	int		i;
 
-
+	key = NULL;
+	value = NULL;
+	equals_sign = NULL;
+	valid = true;
 	equals_sign = ft_strchr(arg, '=');
-    if (equals_sign && equals_sign != arg)
-	    key = ft_substr(arg, 0, equals_sign - arg);
-    else
-        key = ft_strdup(arg);
-
-	int i = -1;
-    while (key[++i])
+	if (equals_sign && equals_sign != arg)
+		key = ft_substr(arg, 0, equals_sign - arg);
+	else
+		key = ft_strdup(arg);
+	i = -1;
+	while (key[++i])
 		if (!valid_env_char(key[i]))
 			valid = false;
-
 	if (!valid)
 	{
-        ft_putstr_fd("export: '", 2);
+		ft_putstr_fd("export: '", 2);
 		ft_putstr_fd(key, 2);
 		ft_putstr_fd("' not a valid identifier\n", 2);
 	}
 	else if (equals_sign)
 	{
-        value = ft_strdup(equals_sign + 1);
+		value = ft_strdup(equals_sign + 1);
 		if (valid && value != NULL)
-				set_env(arg);
+			set_env(arg);
 	}
-
 	free_str(&key);
 	free_str(&value);
-    return (!valid);
+	return (!valid);
 }
 
-void print_env(void)
+void	print_env(void)
 {
-    int i = 0;
-    while (__environ[i])
-    {
-        if (ft_strncmp(__environ[i], "?", 1) && ft_strchr(__environ[i], '='))
-            printf("%s\n", __environ[i]);
-        i++;
-    }
+	int	i;
+
+	i = 0;
+	while (__environ[i])
+	{
+		if (ft_strncmp(__environ[i], "?", 1) && ft_strchr(__environ[i], '='))
+			printf("%s\n", __environ[i]);
+		i++;
+	}
 }
 
-int run_builtin(t_params *params, t_list *cmd_lst)
+int	run_builtin(t_params *params, t_list *cmd_lst)
 {
-	t_cmd   *cmd = cmd_lst->content;
-	char    **argv = cmd->words;
-    int     code = 0;
+	t_cmd *cmd = cmd_lst->content;
+	char **argv = cmd->words;
+	int code = 0;
 
 	if (!ft_strncmp(argv[0], "export", 7))
 	{
 		int i = 0;
 		while (argv[++i])
-			code |=  ms_export(argv[i]);
+			code |= ms_export(argv[i]);
 	}
 	else if (!ft_strncmp(argv[0], "env", 4))
-	{
 		print_env();
-	}
 	else if (!ft_strncmp(argv[0], "exit", 5))
 	{
-        if (params->num_cmds == 1 && !cmd_lst->next)
-            ft_putstr_fd("exit\n", STDERR_FILENO);
+		if (params->num_cmds == 1 && !cmd_lst->next)
+			ft_putstr_fd("exit\n", STDERR_FILENO);
 		ms_exit(params, 0);
 	}
 	else if (!ft_strncmp(argv[0], "unset", 6))
 	{
-		// run unset
-		int i = 1;
-		while (argv[i])
-		{
+		int i = 0;
+		while (argv[++i])
 			unset_env(argv[i]);
-			i++;
-		}
 	}
-    printf("\t\tbuiltin exitin with code %i\n", code);
-    return code;
+	return (code);
 }
