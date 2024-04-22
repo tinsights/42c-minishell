@@ -23,7 +23,8 @@ void	ms_exit(t_params *params, int code)
 
 	if (params->paths)
 	{
-		for (int i = 0; params->paths[i]; i++)
+		i = -1;
+		while (params->paths[++i])
 			free(params->paths[i]);
 		free(params->paths);
 	}
@@ -48,7 +49,7 @@ void	unset_env(char *var)
 	key = ft_strdup(var);
 	loc = ft_strchr(key, '=');
 	if (loc)
-		*loc = '\0'; 
+		*loc = '\0';
 	i = 0;
 	while (__environ[i])
 	{
@@ -71,7 +72,7 @@ void	set_env(char *var)
 	key = ft_strdup(var);
 	loc = ft_strchr(key, '=');
 	if (loc)
-		*loc = '\0'; 
+		*loc = '\0';
 	i = -1;
 	while (__environ[++i])
 	{
@@ -91,6 +92,23 @@ void	set_env(char *var)
 	free(key);
 }
 
+bool	check_valid(char *arg, char **key, char **eqls)
+{
+	bool	valid;
+
+	valid = true;
+	*eqls = ft_strchr(arg, '=');
+	if (*eqls && *eqls != arg)
+		key = ft_substr(arg, 0, *eqls - arg);
+	else
+		key = ft_strdup(arg);
+	i = -1;
+	while (key[++i])
+		if (!valid_env_char(key[i]))
+			valid = false;
+	return (valid);
+}
+
 int	ms_export(char *arg)
 {
 	char	*key;
@@ -99,19 +117,7 @@ int	ms_export(char *arg)
 	bool	valid;
 	int		i;
 
-	key = NULL;
-	value = NULL;
-	equals_sign = NULL;
-	valid = true;
-	equals_sign = ft_strchr(arg, '=');
-	if (equals_sign && equals_sign != arg)
-		key = ft_substr(arg, 0, equals_sign - arg);
-	else
-		key = ft_strdup(arg);
-	i = -1;
-	while (key[++i])
-		if (!valid_env_char(key[i]))
-			valid = false;
+	valid = check_valid(arg, &key, &equals_sign);
 	if (!valid)
 	{
 		ft_putstr_fd("export: '", 2);
@@ -144,13 +150,18 @@ void	print_env(void)
 
 int	run_builtin(t_params *params, t_list *cmd_lst)
 {
-	t_cmd *cmd = cmd_lst->content;
-	char **argv = cmd->words;
-	int code = 0;
+	t_cmd	*cmd;
+	char	**argv;
+	int		code;
+	int		i;
+	int		i;
 
+	cmd = cmd_lst->content;
+	argv = cmd->words;
+	code = 0;
 	if (!ft_strncmp(argv[0], "export", 7))
 	{
-		int i = 0;
+		i = 0;
 		while (argv[++i])
 			code |= ms_export(argv[i]);
 	}
@@ -164,7 +175,7 @@ int	run_builtin(t_params *params, t_list *cmd_lst)
 	}
 	else if (!ft_strncmp(argv[0], "unset", 6))
 	{
-		int i = 0;
+		i = 0;
 		while (argv[++i])
 			unset_env(argv[i]);
 	}
