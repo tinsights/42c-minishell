@@ -34,49 +34,33 @@ void	*ft_realloc(void *ptr, size_t old_size, size_t size)
 	return (res);
 }
 
-void safe_free(void **ptr)
-{
-	if (*ptr)
-		free (*ptr);
-	*ptr = NULL;
-}
-
-void free_str(char **str)
+void	free_str(char **str)
 {
 	if (*str)
-		free (*str);
+		free(*str);
 	*str = NULL;
 }
 
-
-void free_cmds(void *ptr)
+void	free_cmds(void *ptr)
 {
-	t_cmd *cmd = (t_cmd *) ptr;
-	char **words = cmd->words;
-	t_redir *redirects = cmd->redirs;
+	t_cmd	*cmd;
+	char	**words;
+	t_redir	*redirects;
+	int		i;
 
-	int i = 0;
-	while (i < cmd->num_words)
-	{
-		// printf("clearing %p %s\n", words[i], words[i]);
+	cmd = (t_cmd *)ptr;
+	words = cmd->words;
+	redirects = cmd->redirs;
+	i = -1;
+	while (++i < cmd->num_words)
 		free_str(words + i);
-		i++;
-	}
-	i = 0;
-	while (i < cmd->num_redirects)
-	{
-		// printf("clearing %p %s ", redirects[i].file, redirects[i].file);
-		// printf("of type %s\n", types[redirects[i].type]);
+	i = -1;
+	while (++i < cmd->num_redirects)
 		free_str(&(redirects[i].file));
-		i++;
-	}
-
 	if (cmd->heredoc_fd > 0)
 		close(cmd->heredoc_fd);
-	
-	safe_free((void **) &words);
-	safe_free((void **) &redirects);
-	safe_free((void **) &(cmd->line));
-	safe_free((void **) &(cmd));
-
+	ft_free((void **)&words);
+	ft_free((void **)&redirects);
+	ft_free((void **)&(cmd->line));
+	ft_free((void **)&(cmd));
 }

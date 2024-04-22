@@ -95,16 +95,17 @@ void	set_env(char *var)
 bool	check_valid(char *arg, char **key, char **eqls)
 {
 	bool	valid;
+	int		i;
 
 	valid = true;
 	*eqls = ft_strchr(arg, '=');
 	if (*eqls && *eqls != arg)
-		key = ft_substr(arg, 0, *eqls - arg);
+		(*key) = ft_substr(arg, 0, *eqls - arg);
 	else
-		key = ft_strdup(arg);
+		(*key) = ft_strdup(arg);
 	i = -1;
-	while (key[++i])
-		if (!valid_env_char(key[i]))
+	while ((*key)[++i])
+		if (!valid_env_char((*key)[i]))
 			valid = false;
 	return (valid);
 }
@@ -115,7 +116,6 @@ int	ms_export(char *arg)
 	char	*value;
 	char	*equals_sign;
 	bool	valid;
-	int		i;
 
 	valid = check_valid(arg, &key, &equals_sign);
 	if (!valid)
@@ -129,9 +129,9 @@ int	ms_export(char *arg)
 		value = ft_strdup(equals_sign + 1);
 		if (valid && value != NULL)
 			set_env(arg);
+		free_str(&value);
 	}
 	free_str(&key);
-	free_str(&value);
 	return (!valid);
 }
 
@@ -154,14 +154,13 @@ int	run_builtin(t_params *params, t_list *cmd_lst)
 	char	**argv;
 	int		code;
 	int		i;
-	int		i;
 
 	cmd = cmd_lst->content;
 	argv = cmd->words;
 	code = 0;
+	i = 0;
 	if (!ft_strncmp(argv[0], "export", 7))
 	{
-		i = 0;
 		while (argv[++i])
 			code |= ms_export(argv[i]);
 	}
