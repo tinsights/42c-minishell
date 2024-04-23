@@ -1,4 +1,4 @@
 --leak-check=full
 --show-leak-kinds=all
 --suppressions=readline.supp
---gen-suppressions=no
+--gen-suppressions=all

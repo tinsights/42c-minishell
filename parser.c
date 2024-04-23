@@ -136,9 +136,9 @@ char	*get_env_key(char *line)
 	return (NULL);
 }
 
-int				env_len(char **line_ptr, char qstart, bool is_heredoc);
+int				env_len(char **line_ptr, char qstart, int hd_flag);
 
-int	len_to_alloc(char **line_ptr, char qstart, bool is_heredoc)
+int	len_to_alloc(char **line_ptr, char qstart, int hd_flag)
 {
 	if (!qstart && (!**line_ptr || is_redirect(*line_ptr)
 			|| is_space(**line_ptr)))
@@ -155,18 +155,19 @@ int	len_to_alloc(char **line_ptr, char qstart, bool is_heredoc)
 	{
 		qstart = **line_ptr;
 		(*line_ptr)++;
-		return (len_to_alloc(line_ptr, qstart, is_heredoc));
+		return (len_to_alloc(line_ptr, qstart, hd_flag));
 	}
-	else if (qstart != '\'' && valid_env_start(*line_ptr) && !is_heredoc)
-		return (env_len(line_ptr, qstart, is_heredoc));
+	else if ((hd_flag == 2 || qstart != '\'') && valid_env_start(*line_ptr)
+			&& hd_flag)
+		return (env_len(line_ptr, qstart, hd_flag));
 	else
 	{
 		(*line_ptr)++;
-		return (1 + len_to_alloc(line_ptr, qstart, is_heredoc));
+		return (1 + len_to_alloc(line_ptr, qstart, hd_flag));
 	}
 }
 
-int	env_len(char **line_ptr, char qstart, bool is_heredoc)
+int	env_len(char **line_ptr, char qstart, int hd_flag)
 {
 	char	*var;
 	int		key_len;
@@ -182,7 +183,7 @@ int	env_len(char **line_ptr, char qstart, bool is_heredoc)
 	key_len = ft_strlen(var) + 1;
 	*line_ptr += key_len;
 	free_str(&var);
-	return (len + len_to_alloc(line_ptr, qstart, is_heredoc));
+	return (len + len_to_alloc(line_ptr, qstart, hd_flag));
 }
 
 bool	end_of_line(char **line_ptr, char *qstart)
@@ -196,9 +197,9 @@ bool	end_of_line(char **line_ptr, char *qstart)
 			|| is_space(**line_ptr)));
 }
 bool			handle_env_copy(char **line_ptr, char qstart, char *word,
-					bool is_heredoc);
+					int hd_flag);
 
-bool	word_copy(char **line_ptr, char qstart, char *word, bool is_heredoc)
+bool	word_copy(char **line_ptr, char qstart, char *word, int hd_flag)
 {
 	static bool	quoted;
 	bool		result;
@@ -214,21 +215,21 @@ bool	word_copy(char **line_ptr, char qstart, char *word, bool is_heredoc)
 		quoted = true;
 		qstart = **line_ptr;
 		(*line_ptr)++;
-		return (word_copy(line_ptr, qstart, word, is_heredoc));
+		return (word_copy(line_ptr, qstart, word, hd_flag));
 	}
-	else if (qstart != '\'' && valid_env_start(*line_ptr) && !is_heredoc)
-		return (handle_env_copy(line_ptr, qstart, word, is_heredoc));
+	else if ((hd_flag == 2 || qstart != '\'') && valid_env_start(*line_ptr)
+			&& hd_flag)
+		return (handle_env_copy(line_ptr, qstart, word, hd_flag));
 	else
 	{
 		*word = **line_ptr;
 		(*line_ptr)++;
 		word++;
-		return (word_copy(line_ptr, qstart, word, is_heredoc));
+		return (word_copy(line_ptr, qstart, word, hd_flag));
 	}
 }
 
-bool	handle_env_copy(char **line_ptr, char qstart, char *word,
-		bool is_heredoc)
+bool	handle_env_copy(char **line_ptr, char qstart, char *word, int hd_flag)
 {
 	char	*var;
 	int		key_len;
@@ -248,15 +249,15 @@ bool	handle_env_copy(char **line_ptr, char qstart, char *word,
 	key_len = ft_strlen(var) + 1;
 	*line_ptr += key_len;
 	free_str(&var);
-	return (word_copy(line_ptr, qstart, word, is_heredoc));
+	return (word_copy(line_ptr, qstart, word, hd_flag));
 }
 
 void	parse_redirect(t_cmd *cmd, char **line_ptr)
 {
-	t_redir			*redirs;
-	t_redir			redir;
-	char			*copy;
-	int				len;
+	t_redir	*redirs;
+	t_redir	redir;
+	char	*copy;
+	int		len;
 
 	redirs = cmd->redirs;
 	redir.type = get_redir_type((*line_ptr));
@@ -266,11 +267,11 @@ void	parse_redirect(t_cmd *cmd, char **line_ptr)
 	while (is_space(*(*line_ptr)))
 		(*line_ptr)++;
 	copy = (*line_ptr);
-	len = len_to_alloc(line_ptr, 0, redir.type == heredoc);
+	len = len_to_alloc(line_ptr, 0, redir.type != heredoc);
 	redirs = ft_realloc(redirs, cmd->num_redirects * sizeof(t_redir),
 			(cmd->num_redirects + 1) * sizeof(t_redir));
 	redir.file = ft_calloc(len + 1, sizeof(char));
-	redir.quoted = word_copy(&copy, 0, redir.file, redir.type == heredoc);
+	redir.quoted = word_copy(&copy, 0, redir.file, redir.type != heredoc);
 	redirs[cmd->num_redirects] = redir;
 	cmd->num_redirects++;
 	cmd->redirs = redirs;
@@ -283,14 +284,14 @@ void	parse_words(t_cmd *cmd, char **line_ptr)
 	char	*word;
 
 	copy = *line_ptr;
-	len = len_to_alloc(line_ptr, 0, false);
+	len = len_to_alloc(line_ptr, 0, 1);
 	if (!cmd->words)
 		cmd->words = ft_calloc(1, sizeof(char *));
 	if (len)
 	{
 		word = ft_calloc(len + 1, sizeof(char));
 		cmd->words[cmd->num_words] = word;
-		word_copy(&copy, 0, cmd->words[cmd->num_words], false);
+		word_copy(&copy, 0, cmd->words[cmd->num_words], 1);
 		cmd->num_words++;
 		cmd->words = ft_realloc(cmd->words, cmd->num_words * sizeof(char *),
 				(cmd->num_words + 1) * sizeof(char *));

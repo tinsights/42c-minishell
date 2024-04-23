@@ -22,8 +22,8 @@ int		run_command(t_params *params, t_list *cmd_lst);
 void	set_env(char *str);
 void	ms_exit(t_params *params, int g_code);
 int		run_builtin(t_params *params, t_list *cmd_lst);
-int		len_to_alloc(char **line_ptr, char qstart, bool is_heredoc);
-bool	word_copy(char **line_ptr, char qstart, char *word, bool is_heredoc);
+int		len_to_alloc(char **line_ptr, char qstart, int hd_flag);
+bool	word_copy(char **line_ptr, char qstart, char *word, int hd_flag);
 void	process_heredocs(t_params *params, t_list *cmd_lst);
 int		g_code;
 
@@ -119,6 +119,8 @@ void	set_global_envs(void)
 		free_str(&key);
 		free_str(&result);
 	}
+	else
+		set_env("SHLVL=1");
 	set_env("SHELL=minishell");
 }
 
@@ -206,9 +208,9 @@ void	expand_heredoc_line(char *line_ref, int heredoc_pipe[2])
 			continue ;
 		}
 		copy = line_ref;
-		len = len_to_alloc(&line_ref, 0, false);
+		len = len_to_alloc(&line_ref, 0, 2);
 		word = ft_calloc(len + 1, sizeof(char));
-		word_copy(&copy, 0, word, false);
+		word_copy(&copy, 0, word, 2);
 		write(heredoc_pipe[1], word, ft_strlen(word));
 		free_str(&word);
 	}

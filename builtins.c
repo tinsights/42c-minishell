@@ -34,6 +34,8 @@ void	ms_exit(t_params *params, int code)
 		free_str(__environ + i);
 	free(__environ);
 	free_str(&(params->line));
+	if (!code)
+		ft_putstr_fd("exit\n", 2);
 	rl_clear_history();
 	close(params->default_io[0]);
 	close(params->default_io[1]);
@@ -149,13 +151,13 @@ void	print_env(void)
 	}
 }
 
-void	ms_echo(char **argv)
+int	ms_echo(char **argv)
 {
 	int		i;
 	bool	newline;
 
 	if (!argv || !argv[0])
-		return ;
+		return write(STDOUT_FILENO, "\n", 1);
 	newline = true;
 	i = 0;
 	if ((!ft_strncmp("-n", argv[i], 3)))
@@ -166,18 +168,19 @@ void	ms_echo(char **argv)
 	while (argv[i])
 	{
 		write(STDOUT_FILENO, argv[i], ft_strlen(argv[i]));
-		write(STDOUT_FILENO, " ", 1);
-		i++;
+		if (argv[++i])
+			write(STDOUT_FILENO, " ", 1);
 	}
 	if (newline)
 		write(STDOUT_FILENO, "\n", 1);
+	return (0);
 }
 
-void set_pwd(void)
+void	set_pwd(void)
 {
-	char *cwd;
-	char *envwd;
-	char *var;
+	char	*cwd;
+	char	*envwd;
+	char	*var;
 
 	cwd = getcwd(NULL, 500);
 	envwd = ft_strjoin("PWD", "=");
@@ -190,11 +193,11 @@ void set_pwd(void)
 
 int	ms_cd(char *argv)
 {
-	int result;
+	int	result;
 
 	result = 0;
 	if (!argv || !argv[0])
-		return 1;
+		return (1);
 	if (chdir(argv) < 0)
 	{
 		result = errno;
@@ -202,12 +205,12 @@ int	ms_cd(char *argv)
 	}
 	else
 		set_pwd();
-	return result;
+	return (result);
 }
 
-void ms_pwd(void)
+void	ms_pwd(void)
 {
-	char *cwd;
+	char	*cwd;
 
 	cwd = getcwd(NULL, 500);
 	printf("%s\n", cwd);
@@ -235,8 +238,7 @@ int	run_builtin(t_params *params, t_list *cmd_lst)
 	else if (!ft_strncmp(argv[0], "exit", 5))
 	{
 		if (params->num_cmds == 1 && !cmd_lst->next)
-		// ft_putstr_fd("exit\n", STDERR_FILENO);
-		ms_exit(params, 0);
+			ms_exit(params, 0);
 	}
 	else if (!ft_strncmp(argv[0], "unset", 6))
 	{
