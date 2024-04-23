@@ -18,6 +18,7 @@ void	create_cmds(t_params *params);
 void	handle_sigint(int sig);
 void	init_io(t_params *params);
 void	init_env(t_params *params, char **envp);
+bool	is_builtin(char **argv);
 
 void	process_heredocs(t_params *params, t_list *cmd_lst);
 
@@ -26,12 +27,15 @@ int		g_code;
 bool	child_interrupted(t_list *cmd_lst)
 {
 	t_cmd	*cmd;
+	int		status;
 
 	while (cmd_lst)
 	{
 		cmd = cmd_lst->content;
-		if (WIFSIGNALED(cmd->proc.exit_status))
-			return (true);
+		status = cmd->proc.exit_status;
+		if (!is_builtin(cmd->words))
+			if (WIFSIGNALED(status) && WTERMSIG(status) == SIGINT)
+				return (true);
 		cmd_lst = cmd_lst->next;
 	}
 	return (false);
@@ -49,7 +53,7 @@ bool	run_line(t_params *params)
 	if (params->interactive)
 	{
 		signal(SIGINT, SIG_IGN);
-		g_code = run_command(params, params->cmd_list);
+		run_command(params, params->cmd_list);
 		if (child_interrupted(params->cmd_list))
 			write(1, "\n", 1);
 	}
@@ -79,7 +83,7 @@ int	main(int ac, char **av, char **envp)
 			if (!run_line(&params))
 				continue ;
 		if (!params.line)
-			ms_exit(&params, 0);
+			ms_exit(&params, 0, false);
 	}
 }
 
@@ -89,7 +93,7 @@ void	ms_dup(int newfd, int oldfd)
 	close(newfd);
 }
 
-void	ms_exit(t_params *params, int code)
+void	ms_exit(t_params *params, int code, bool print)
 {
 	int	i;
 
@@ -106,7 +110,7 @@ void	ms_exit(t_params *params, int code)
 		free_str(__environ + i);
 	free(__environ);
 	free_str(&(params->line));
-	if (!code)
+	if (print && isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
 		ft_putstr_fd("exit\n", 2);
 	rl_clear_history();
 	close(params->default_io[0]);

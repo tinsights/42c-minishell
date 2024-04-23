@@ -35,8 +35,8 @@ int	env_len(char **line_ptr, char qstart, int hd_flag)
 
 int	len_to_alloc(char **line_ptr, char qstart, int hd_flag)
 {
-	if (!qstart && (!**line_ptr || is_redirect(*line_ptr)
-			|| is_space(**line_ptr)))
+	if (!**line_ptr || (!qstart && (is_redirect(*line_ptr)
+			|| is_space(**line_ptr))))
 		return (0);
 	if (qstart && **line_ptr == qstart)
 	{
@@ -87,6 +87,8 @@ bool	handle_env_copy(char **line_ptr, char qstart, char *word, int hd_flag)
 
 bool	end_of_line(char **line_ptr, char *qstart)
 {
+	if (!**line_ptr)
+		return (true);
 	if (*qstart && **line_ptr == *qstart)
 	{
 		(*line_ptr)++;

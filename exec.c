@@ -64,22 +64,33 @@ void	run_child(t_params *params, t_list *cmd_lst, char **argv, int p_fd[2])
 		else if (argv[0])
 			run_cmd(params, redirect_success, argv);
 	}
-	ms_exit(params, g_code);
+	ms_exit(params, g_code, false);
 }
 
 void	run_parent(t_params *params, t_list *cmd_lst, t_cmd *cmd, int p_fd[2])
 {
+	int	code;
+
 	if (cmd_lst->next)
 	{
 		close(p_fd[1]);
 		ms_dup(p_fd[0], STDIN_FILENO);
 		run_command(params, cmd_lst->next);
+		waitpid(cmd->proc.pid, &(cmd->proc.exit_status), 0);
 	}
 	else
+	{
 		dup2(params->default_io[0], STDIN_FILENO);
+		waitpid(cmd->proc.pid, &(cmd->proc.exit_status), 0);
+		if (WIFEXITED(cmd->proc.exit_status))
+			code = WEXITSTATUS(cmd->proc.exit_status);
+		else
+			code = 128 + WTERMSIG(cmd->proc.exit_status);
+		set_g_code(code);
+	}
 }
 
-int	run_single(t_params *params, t_list *cmd_lst)
+void	run_single(t_params *params, t_list *cmd_lst)
 {
 	int	e_status;
 
@@ -88,10 +99,10 @@ int	run_single(t_params *params, t_list *cmd_lst)
 		e_status = run_builtin(params, cmd_lst->content);
 	dup2(params->default_io[0], STDIN_FILENO);
 	dup2(params->default_io[1], STDOUT_FILENO);
-	return (e_status);
+	set_g_code(e_status);
 }
 
-int	run_command(t_params *params, t_list *cmd_lst)
+void	run_command(t_params *params, t_list *cmd_lst)
 {
 	t_cmd	*cmd;
 	int		pid;
@@ -107,9 +118,4 @@ int	run_command(t_params *params, t_list *cmd_lst)
 		run_child(params, cmd_lst, cmd->words, p_fd);
 	cmd->proc.pid = pid;
 	run_parent(params, cmd_lst, cmd, p_fd);
-	waitpid(pid, &(cmd->proc.exit_status), 0);
-	if (WIFEXITED(cmd->proc.exit_status))
-		return (WEXITSTATUS(cmd->proc.exit_status));
-	else
-		return (128 + WTERMSIG(cmd->proc.exit_status));
 }
