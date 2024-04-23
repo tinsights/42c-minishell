@@ -17,6 +17,8 @@ int	ft_atoi(const char *nptr)
 	int		polarity;
 	long	nb;
 
+	if (!nptr || !nptr[0])
+		return (0);
 	nb = 0;
 	polarity = 1;
 	while (ft_isspace(*nptr))

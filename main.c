@@ -34,7 +34,8 @@ bool	child_interrupted(t_list *cmd_lst)
 		cmd = cmd_lst->content;
 		status = cmd->proc.exit_status;
 		if (!is_builtin(cmd->words))
-			if (WIFSIGNALED(status) && WTERMSIG(status) == SIGINT)
+			if (WIFSIGNALED(status) && (WTERMSIG(status) == SIGINT
+					|| WTERMSIG(status) == SIGQUIT))
 				return (true);
 		cmd_lst = cmd_lst->next;
 	}
