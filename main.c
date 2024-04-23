@@ -36,11 +36,12 @@ void	handle_sigint(int sig)
 	g_code = 130;
 }
 
-void	set_g_code(int g_code)
+void	set_g_code(int code)
 {
 	char	*result;
 	char	*key;
 
+	g_code = code;
 	result = ft_itoa(g_code);
 	key = ft_strjoin("?=", result);
 	set_env(key);
@@ -89,8 +90,7 @@ bool	run_line(t_params *params)
 		process_heredocs(params, params->cmd_list);
 	if (params->interactive)
 	{
-		params->sa.sa_handler = SIG_IGN;
-		sigaction(SIGINT, &params->sa, NULL);
+		signal(SIGINT, SIG_IGN);
 		g_code = run_command(params, params->cmd_list);
 		if (child_interrupted(params->cmd_list))
 			write(1, "\n", 1);
@@ -107,7 +107,9 @@ void	set_global_envs(void)
 	char	*key;
 
 	if (!getenv("?"))
-		set_env("?=0");
+		set_g_code(0);
+	else
+		set_g_code(ft_atoi(getenv("?")));
 	if (getenv("SHLVL"))
 	{
 		lvl = ft_atoi(getenv("SHLVL"));
@@ -272,7 +274,8 @@ bool	is_builtin(char **argv)
 		return (false);
 	return (!ft_strncmp(argv[0], "export", 7) || !ft_strncmp(argv[0], "env", 4)
 		|| !ft_strncmp(argv[0], "unset", 6) || !ft_strncmp(argv[0], "exit", 5)
-		|| !ft_strncmp(argv[0], "echo", 5));
+		|| !ft_strncmp(argv[0], "echo", 5) || !ft_strncmp(argv[0], "cd", 3)
+		|| !ft_strncmp(argv[0], "pwd", 4));
 }
 
 void	ms_dup(int newfd, int oldfd)
@@ -389,14 +392,14 @@ void	run_parent(t_params *params, t_list *cmd_lst, t_cmd *cmd, int p_fd[2])
 
 int	run_single(t_params *params, t_list *cmd_lst)
 {
-	int	g_code;
+	int	e_status;
 
-	g_code = 1;
+	e_status = 1;
 	if (process_redirects(cmd_lst->content))
-		g_code = run_builtin(params, cmd_lst);
+		e_status = run_builtin(params, cmd_lst);
 	dup2(params->default_io[0], STDIN_FILENO);
 	dup2(params->default_io[1], STDOUT_FILENO);
-	return (g_code);
+	return (e_status);
 }
 
 int	run_command(t_params *params, t_list *cmd_lst)

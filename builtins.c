@@ -173,21 +173,62 @@ void	ms_echo(char **argv)
 		write(STDOUT_FILENO, "\n", 1);
 }
 
+void set_pwd(void)
+{
+	char *cwd;
+	char *envwd;
+	char *var;
+
+	cwd = getcwd(NULL, 500);
+	envwd = ft_strjoin("PWD", "=");
+	var = ft_strjoin(envwd, cwd);
+	set_env(var);
+	free_str(&envwd);
+	free_str(&var);
+	free_str(&cwd);
+}
+
+int	ms_cd(char *argv)
+{
+	int result;
+
+	result = 0;
+	if (!argv || !argv[0])
+		return 1;
+	if (chdir(argv) < 0)
+	{
+		result = errno;
+		perror(argv);
+	}
+	else
+		set_pwd();
+	return result;
+}
+
+void ms_pwd(void)
+{
+	char *cwd;
+
+	cwd = getcwd(NULL, 500);
+	printf("%s\n", cwd);
+	free_str(&cwd);
+}
+
 int	run_builtin(t_params *params, t_list *cmd_lst)
 {
 	t_cmd	*cmd;
 	char	**argv;
-	int		code;
+	int		e_status;
 	int		i;
 
 	cmd = cmd_lst->content;
 	argv = cmd->words;
-	code = 0;
+	e_status = 0;
 	i = 0;
 	if (!ft_strncmp(argv[0], "export", 7))
 	{
 		while (argv[++i])
-			code |= ms_export(argv[i]);
+			e_status |= ms_export(argv[i]);
 	}
 	else if (!ft_strncmp(argv[0], "env", 4))
 		print_env();
@@ -205,7 +246,9 @@ int	run_builtin(t_params *params, t_list *cmd_lst)
 	}
 	else if (!ft_strncmp(argv[0], "echo", 5))
 		ms_echo(argv + 1);
-	// else if (!ft_strncmp(argv[0], "pwd", 4))
-	// else if (!ft_strncmp(argv[0], "cd", 3))
-	return (code);
+	else if (!ft_strncmp(argv[0], "cd", 3))
+		e_status = ms_cd(argv[1]);
+	else if (!ft_strncmp(argv[0], "pwd", 4))
+		ms_pwd();
+	return (e_status);
 }
