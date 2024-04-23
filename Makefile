@@ -8,10 +8,17 @@ LIBDIR = libft/
 LIBFT = $(LIBDIR)/libft.a
 
 SRCS = main.c \
+		init.c \
+		env_builtins.c \
 		builtins.c \
 		mem_utils.c \
 		parse_utils.c \
-		parser.c
+		tokenizer.c \
+		syntax.c \
+		parser.c \
+		heredocs.c \
+		exec_utils.c \
+		exec.c
 
 OBJS = $(SRCS:.c=.o)
 

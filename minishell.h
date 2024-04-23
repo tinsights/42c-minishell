@@ -70,16 +70,30 @@ typedef struct s_params
 	char					**envs;
 	char					**orig_envp;
 	bool					interactive;
-
 	int						env_count;
 	int						default_io[3];
-
 	t_sig					sa;
-
 	t_list					*cmd_list;
 }							t_params;
 
-void						*ft_realloc(void *ptr, size_t old_size,
-								size_t size);
+bool						valid_env_char(char c);
+bool						valid_env_start(char *line);
+bool						is_space(char c);
+int							is_redirect(char *line);
+bool						is_meta(char *line);
+void						*ft_realloc(void *ptr, size_t old_sz, size_t sz);
+void						free_str(char **str);
+bool						word_copy(char **ptr, char qstart, char *word,
+								int flag);
+int							len_to_alloc(char **line_ptr, char qstart,
+								int hd_flag);
+void						ms_exit(t_params *params, int code);
+void						set_env(char *var);
+void						free_cmds(void *ptr);
+void						set_g_code(int code);
+void						ms_dup(int newfd, int oldfd);
+int							run_command(t_params *params, t_list *cmd_lst);
+
+extern int					g_code;
 
 #endif

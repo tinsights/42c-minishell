@@ -22,31 +22,9 @@ bool	valid_env_start(char *line)
 	return (*line == '$' && (line[1] == '?' || valid_env_char(line[1])));
 }
 
-t_redir_type	get_redir_type(char *line)
-{
-	int	i;
-
-	i = 0;
-	if (!ft_strncmp(line, ">>", 2))
-		return (out_append);
-	else if (!ft_strncmp(line, "<<", 2))
-		return (heredoc);
-	else if (!ft_strncmp(line, ">", 1))
-		return (out_trunc);
-	else if (!ft_strncmp(line, "<", 1))
-		return (input);
-	else
-		return (-1);
-}
-
 bool	is_space(char c)
 {
 	return (c == ' ' || c == '\t' || c == '\n');
-}
-
-bool	is_single_pipe(char *line)
-{
-	return (line && line[0] == '|' && line[1] != '|');
 }
 
 int	is_redirect(char *line)
@@ -59,7 +37,21 @@ int	is_redirect(char *line)
 		return (0);
 }
 
-bool	is_meta(char *line)
+char	*get_env_key(char *line)
 {
-	return (is_redirect(line) || !ft_strncmp(line, "|", 1));
+	char	*result;
+	int		i;
+
+	i = 1;
+	if (line[i] == '?')
+		return (ft_substr(line, 1, 1));
+	if (line[i] == '_' || ft_isalpha(line[i]))
+	{
+		i++;
+		while (valid_env_char(line[i]))
+			i++;
+		result = ft_substr(line, 1, i - 1);
+		return (result);
+	}
+	return (NULL);
 }
