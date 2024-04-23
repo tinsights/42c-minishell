@@ -37,6 +37,7 @@ void	ms_exit(t_params *params, int code)
 	rl_clear_history();
 	close(params->default_io[0]);
 	close(params->default_io[1]);
+	close(params->default_io[2]);
 	exit(code);
 }
 
@@ -148,6 +149,30 @@ void	print_env(void)
 	}
 }
 
+void	ms_echo(char **argv)
+{
+	int		i;
+	bool	newline;
+
+	if (!argv || !argv[0])
+		return ;
+	newline = true;
+	i = 0;
+	if ((!ft_strncmp("-n", argv[i], 3)))
+	{
+		newline = false;
+		i++;
+	}
+	while (argv[i])
+	{
+		write(STDOUT_FILENO, argv[i], ft_strlen(argv[i]));
+		write(STDOUT_FILENO, " ", 1);
+		i++;
+	}
+	if (newline)
+		write(STDOUT_FILENO, "\n", 1);
+}
+
 int	run_builtin(t_params *params, t_list *cmd_lst)
 {
 	t_cmd	*cmd;
@@ -169,7 +194,7 @@ int	run_builtin(t_params *params, t_list *cmd_lst)
 	else if (!ft_strncmp(argv[0], "exit", 5))
 	{
 		if (params->num_cmds == 1 && !cmd_lst->next)
-			ft_putstr_fd("exit\n", STDERR_FILENO);
+		// ft_putstr_fd("exit\n", STDERR_FILENO);
 		ms_exit(params, 0);
 	}
 	else if (!ft_strncmp(argv[0], "unset", 6))
@@ -178,10 +203,8 @@ int	run_builtin(t_params *params, t_list *cmd_lst)
 		while (argv[++i])
 			unset_env(argv[i]);
 	}
-	// else if (!ft_strncmp(argv[0], "echo", 5))
-	// {
-
-	// }
+	else if (!ft_strncmp(argv[0], "echo", 5))
+		ms_echo(argv + 1);
 	// else if (!ft_strncmp(argv[0], "pwd", 4))
 	// else if (!ft_strncmp(argv[0], "cd", 3))
 	return (code);

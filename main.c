@@ -64,6 +64,20 @@ void	init_io(t_params *params)
 	dup2(params->default_io[2], STDERR_FILENO);
 }
 
+bool	child_interrupted(t_list *cmd_lst)
+{
+	t_cmd	*cmd;
+
+	while (cmd_lst)
+	{
+		cmd = cmd_lst->content;
+		if (WIFSIGNALED(cmd->proc.exit_status))
+			return (true);
+		cmd_lst = cmd_lst->next;
+	}
+	return (false);
+}
+
 bool	run_line(t_params *params)
 {
 	add_history(params->line);
@@ -78,7 +92,7 @@ bool	run_line(t_params *params)
 		params->sa.sa_handler = SIG_IGN;
 		sigaction(SIGINT, &params->sa, NULL);
 		g_code = run_command(params, params->cmd_list);
-		if (g_code == 130)
+		if (child_interrupted(params->cmd_list))
 			write(1, "\n", 1);
 	}
 	set_g_code(g_code);
@@ -86,22 +100,12 @@ bool	run_line(t_params *params)
 	return (true);
 }
 
-void	init_env(t_params *params, char **envp)
+void	set_global_envs(void)
 {
-	int		i;
 	int		lvl;
 	char	*result;
 	char	*key;
 
-	i = 0;
-	while (envp[i])
-		i++;
-	params->env_count = i;
-	params->envs = ft_calloc((i + 2), sizeof(char *));
-	i = -1;
-	while (envp[++i])
-		params->envs[i] = ft_strdup(envp[i]);
-	__environ = params->envs;
 	if (!getenv("?"))
 		set_env("?=0");
 	if (getenv("SHLVL"))
@@ -114,7 +118,22 @@ void	init_env(t_params *params, char **envp)
 		free_str(&result);
 	}
 	set_env("SHELL=minishell");
+}
 
+void	init_env(t_params *params, char **envp)
+{
+	int	i;
+
+	i = 0;
+	while (envp[i])
+		i++;
+	params->env_count = i;
+	params->envs = ft_calloc((i + 2), sizeof(char *));
+	i = -1;
+	while (envp[++i])
+		params->envs[i] = ft_strdup(envp[i]);
+	__environ = params->envs;
+	set_global_envs();
 }
 
 int	main(int ac, char **av, char **envp)
@@ -125,6 +144,7 @@ int	main(int ac, char **av, char **envp)
 	ft_memset(&params, 0, sizeof(t_params));
 	init_io(&params);
 	init_env(&params, envp);
+	signal(SIGQUIT, SIG_IGN);
 	while (true)
 	{
 		params.sa.sa_handler = &handle_sigint;
@@ -251,7 +271,8 @@ bool	is_builtin(char **argv)
 	if (!argv || !argv[0])
 		return (false);
 	return (!ft_strncmp(argv[0], "export", 7) || !ft_strncmp(argv[0], "env", 4)
-		|| !ft_strncmp(argv[0], "unset", 6) || !ft_strncmp(argv[0], "exit", 5));
+		|| !ft_strncmp(argv[0], "unset", 6) || !ft_strncmp(argv[0], "exit", 5)
+		|| !ft_strncmp(argv[0], "echo", 5));
 }
 
 void	ms_dup(int newfd, int oldfd)
@@ -313,8 +334,8 @@ void	run_cmd(t_params *params, bool redir_suc, char **argv)
 	binpath = check_valid_cmd(params->paths, argv[0]);
 	if (binpath && redir_suc)
 	{
-		params->sa.sa_handler = SIG_DFL;
-		sigaction(SIGINT, &params->sa, NULL);
+		signal(SIGQUIT, SIG_DFL);
+		signal(SIGINT, SIG_DFL);
 		execve(binpath, argv, __environ);
 		perror("");
 		g_code = 2;
