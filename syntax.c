@@ -109,7 +109,6 @@ int	count_cmds(char *line)
 {
 	int		cmd_count;
 	char	*start;
-	char	*ptr;
 
 	while (is_space(*line))
 		line++;

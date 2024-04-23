@@ -15,7 +15,7 @@
 int		count_cmds(char *line);
 void	create_cmds(t_params *params);
 
-void	handle_sigint(int sig);
+void	handle_sigint(int);
 void	init_io(t_params *params);
 void	init_env(t_params *params, char **envp);
 bool	is_builtin(char **argv);
@@ -65,13 +65,12 @@ bool	run_line(t_params *params)
 int	main(int ac, char **av, char **envp)
 {
 	t_params	params;
-	int			i;
 
 	ft_memset(&params, 0, sizeof(t_params));
 	init_io(&params);
 	init_env(&params, envp);
 	signal(SIGQUIT, SIG_IGN);
-	while (true)
+	while (ac || av)
 	{
 		params.sa.sa_handler = &handle_sigint;
 		sigaction(SIGINT, &params.sa, NULL);

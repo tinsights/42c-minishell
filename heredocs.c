@@ -12,9 +12,10 @@
 
 #include "minishell.h"
 
-void	heredoc_sigint(int sig)
+void	heredoc_sigint(int sigint)
 {
-	ft_putstr_fd("\n", STDERR_FILENO);
+	if (sigint)
+		ft_putstr_fd("\n", STDERR_FILENO);
 	g_code = 130;
 }
 
