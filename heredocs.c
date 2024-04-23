@@ -22,7 +22,7 @@ void	finalize_heredoc(t_cmd *cmd, char **line, int heredoc_pipe[2])
 {
 	if (cmd->heredoc_fd > 0)
 		close(cmd->heredoc_fd);
-    cmd->heredoc_fd = dup(heredoc_pipe[0]);
+	cmd->heredoc_fd = dup(heredoc_pipe[0]);
 	close(heredoc_pipe[0]);
 	close(heredoc_pipe[1]);
 	free_str(line);
@@ -62,14 +62,13 @@ void	run_heredoc(t_params *params, t_redir redir, t_cmd *cmd)
 {
 	int		heredoc_pipe[2];
 	char	*line;
-    char    *delim;
+	char	*delim;
 
 	if (redir.type == heredoc)
 	{
 		pipe(heredoc_pipe);
-        delim = ft_strjoin(redir.file, "\n");
-		ft_putstr_fd(redir.file, 2);
-		ft_putstr_fd("> ", 2);
+		delim = ft_strjoin(redir.file, "\n");
+		ft_putstr_fd("heredoc>", 2);
 		line = get_next_line(params->default_io[0]);
 		while (line)
 		{
@@ -80,11 +79,10 @@ void	run_heredoc(t_params *params, t_redir redir, t_cmd *cmd)
 			else
 				expand_heredoc_line(line, heredoc_pipe);
 			free_str(&line);
-			ft_putstr_fd(redir.file, 2);
-			ft_putstr_fd("> ", 2);
+			ft_putstr_fd("heredoc>", 2);
 			line = get_next_line(params->default_io[0]);
 		}
-        free_str(&delim);
+		free_str(&delim);
 		finalize_heredoc(cmd, &line, heredoc_pipe);
 	}
 }

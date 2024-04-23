@@ -36,7 +36,7 @@ int	env_len(char **line_ptr, char qstart, int hd_flag)
 int	len_to_alloc(char **line_ptr, char qstart, int hd_flag)
 {
 	if (!**line_ptr || (!qstart && (is_redirect(*line_ptr)
-			|| is_space(**line_ptr))))
+				|| is_space(**line_ptr))))
 		return (0);
 	if (qstart && **line_ptr == qstart)
 	{

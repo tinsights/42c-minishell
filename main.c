@@ -83,7 +83,7 @@ int	main(int ac, char **av, char **envp)
 			if (!run_line(&params))
 				continue ;
 		if (!params.line)
-			ms_exit(&params, 0, false);
+			ms_exit(&params, 0, true);
 	}
 }
 
