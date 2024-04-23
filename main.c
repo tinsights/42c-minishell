@@ -15,7 +15,7 @@
 int		count_cmds(char *line);
 void	create_cmds(t_params *params);
 
-void	handle_sigint(int);
+void	handle_sigint(int sig);
 void	init_io(t_params *params);
 void	init_env(t_params *params, char **envp);
 bool	is_builtin(char **argv);

@@ -97,7 +97,7 @@ int	run_builtin(t_params *params, t_cmd *cmd)
 	else if (!ft_strncmp(argv[0], "env", 4))
 		print_env();
 	else if (!ft_strncmp(argv[0], "exit", 5))
-		ms_exit(params, 0, true);
+		ms_exit(params, !!argv[1] * ft_atoi(argv[1]), true);
 	else if (!ft_strncmp(argv[0], "unset", 6))
 		while (argv[++i])
 			unset_env(argv[i]);
