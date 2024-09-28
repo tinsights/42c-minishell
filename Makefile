@@ -1,6 +1,6 @@
 NAME = minishell
 
-CFLAGS = -Wall -Werror -Wextra
+CFLAGS = -Wall -Werror -Wextra -g
 LIBFLAGS = -Llibft -lft -lreadline
 INC = -Ilibft/includes
 

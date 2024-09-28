@@ -54,14 +54,17 @@ void	run_child(t_params *params, t_list *cmd_lst, char **argv, int p_fd[2])
 		ms_dup(p_fd[1], STDOUT_FILENO);
 	}
 	else
-		dup2(params->default_io[1], STDOUT_FILENO);
+		ms_dup(params->default_io[1], STDOUT_FILENO);
 	if (cmd->num_redirects > 0 && cmd->redirs)
 		redirect_success = process_redirects(cmd);
+	close(params->default_io[0]);
+	close(params->default_io[1]);
+	close(params->default_io[2]);
 	if (redirect_success)
 	{
 		if (is_builtin(argv))
 			g_code = run_builtin(params, cmd_lst->content);
-		else if (argv[0])
+		else if (argv && argv[0])
 			run_cmd(params, redirect_success, argv);
 	}
 	ms_exit(params, g_code, false);

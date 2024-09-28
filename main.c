@@ -87,10 +87,10 @@ int	main(int ac, char **av, char **envp)
 	}
 }
 
-void	ms_dup(int newfd, int oldfd)
+void	ms_dup(int oldfd, int newfd)
 {
-	dup2(newfd, oldfd);
-	close(newfd);
+	dup2(oldfd, newfd);
+	close(oldfd);
 }
 
 void	ms_exit(t_params *params, int code, bool print)
