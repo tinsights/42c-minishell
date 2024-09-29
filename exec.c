@@ -17,6 +17,7 @@ char	*check_valid_cmd(char **paths, char *cmd);
 bool	is_builtin(char **argv);
 bool	process_redirects(t_cmd *cmd);
 int		run_builtin(t_params *params, t_cmd *cmd);
+void	close_fds(t_params *params);
 
 void	run_cmd(t_params *params, bool redir_suc, char **argv)
 {
@@ -57,9 +58,7 @@ void	run_child(t_params *params, t_list *cmd_lst, char **argv, int p_fd[2])
 		ms_dup(params->default_io[1], STDOUT_FILENO);
 	if (cmd->num_redirects > 0 && cmd->redirs)
 		redirect_success = process_redirects(cmd);
-	close(params->default_io[0]);
-	close(params->default_io[1]);
-	close(params->default_io[2]);
+	close_fds(params);
 	if (redirect_success)
 	{
 		if (is_builtin(argv))

@@ -64,3 +64,21 @@ void	free_cmds(void *ptr)
 	ft_free((void **)&(cmd->line));
 	ft_free((void **)&(cmd));
 }
+
+void	close_fds(t_params *params)
+{
+	t_list	*master_lst;
+	t_cmd	*cmd_ptr;
+
+	master_lst = params->cmd_list;
+	while (master_lst)
+	{
+		cmd_ptr = master_lst->content;
+		if (cmd_ptr->heredoc_fd > 0)
+			close (cmd_ptr->heredoc_fd);
+		master_lst = master_lst->next;
+	}
+	close(params->default_io[0]);
+	close(params->default_io[1]);
+	close(params->default_io[2]);
+}
