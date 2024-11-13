@@ -60,19 +60,24 @@ bool	pipe_syntax_error(char *line, char *start)
 bool	redir_syntax_error(char **line_ptr)
 {
 	char	*line;
+	bool	result;
 
+	result = false;
 	if (!ft_strncmp((*line_ptr), "<<", 2) || !ft_strncmp((*line_ptr), ">>", 2))
-		(*line_ptr)++;
-	line = ++(*line_ptr);
+		(*line_ptr) += 2;
+	else
+		(*line_ptr) += 1;
+	line = *line_ptr;
 	while (is_space(*line))
 	{
 		line++;
 		if (!(*line))
-			return (true);
+			result = true;
 	}
 	if (!line[0] || is_redirect(line) || !ft_strncmp(line, "|", 1))
-		return (true);
-	return (false);
+		result = true;
+	*line_ptr -= 1;
+	return (result);
 }
 
 bool	invalid_syntax(char **line_ptr, int *cmd_count, char *start)
@@ -104,7 +109,6 @@ int	count_cmds(char *line)
 {
 	int		cmd_count;
 	char	*start;
-	char	*ptr;
 
 	while (is_space(*line))
 		line++;

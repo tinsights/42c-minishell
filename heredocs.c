@@ -12,24 +12,23 @@
 
 #include "minishell.h"
 
-void	heredoc_sigint(int sig)
+void	heredoc_sigint(int sigint)
 {
-	ft_putstr_fd("\n", STDERR_FILENO);
+	(void) sigint;
 	g_code = 130;
 }
 
-void	finalize_heredoc(t_cmd *cmd, char **line, int heredoc_pipe[2])
+void	finalize_heredoc(t_params *p, t_cmd *cmd, char **line, int hd_pipe[2])
 {
-	if (cmd->heredoc_fd > 0)
-		close(cmd->heredoc_fd);
-	if (*line)
-		cmd->heredoc_fd = dup(heredoc_pipe[0]);
-	else
-		cmd->heredoc_fd = -1;
-	close(heredoc_pipe[0]);
-	close(heredoc_pipe[1]);
+	if (!*line)
+		write(p->default_io[1], "\n", 1);
 	free_str(line);
 	get_next_line(-1);
+	if (cmd->heredoc_fd > 0)
+		close(cmd->heredoc_fd);
+	cmd->heredoc_fd = dup(hd_pipe[0]);
+	close(hd_pipe[0]);
+	close(hd_pipe[1]);
 }
 
 void	expand_heredoc_line(char *line_ref, int heredoc_pipe[2])
@@ -65,27 +64,28 @@ void	run_heredoc(t_params *params, t_redir redir, t_cmd *cmd)
 {
 	int		heredoc_pipe[2];
 	char	*line;
+	char	*delim;
 
 	if (redir.type == heredoc)
 	{
 		pipe(heredoc_pipe);
-		ft_putstr_fd(redir.file, 2);
-		ft_putstr_fd("> ", 2);
+		delim = ft_strjoin(redir.file, "\n");
+		ft_putstr_fd("heredoc> ", 2);
 		line = get_next_line(params->default_io[0]);
 		while (line)
 		{
-			if (!ft_strncmp(line, redir.file, ft_strlen(redir.file)))
+			if (!ft_strncmp(line, delim, ft_strlen(delim)))
 				break ;
 			if (redir.quoted)
 				write(heredoc_pipe[1], line, ft_strlen(line));
 			else
 				expand_heredoc_line(line, heredoc_pipe);
 			free_str(&line);
-			ft_putstr_fd(redir.file, 2);
-			ft_putstr_fd("> ", 2);
+			ft_putstr_fd("heredoc> ", 2);
 			line = get_next_line(params->default_io[0]);
 		}
-		finalize_heredoc(cmd, &line, heredoc_pipe);
+		free_str(&delim);
+		finalize_heredoc(params, cmd, &line, heredoc_pipe);
 	}
 }
 

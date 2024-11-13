@@ -75,6 +75,8 @@ char	*check_valid_cmd(char **paths, char *cmd)
 
 	if (!cmd || !cmd[0])
 		return (NULL);
+	if (!access(cmd, F_OK | X_OK))
+		return (ft_strdup(cmd));
 	cmdpath = ft_strjoin("/", cmd);
 	j = 0;
 	while (paths && paths[j])

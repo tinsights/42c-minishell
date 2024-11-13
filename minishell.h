@@ -87,12 +87,12 @@ bool						word_copy(char **ptr, char qstart, char *word,
 								int flag);
 int							len_to_alloc(char **line_ptr, char qstart,
 								int hd_flag);
-void						ms_exit(t_params *params, int code);
+void						ms_exit(t_params *params, int code, bool print);
 void						set_env(char *var);
 void						free_cmds(void *ptr);
 void						set_g_code(int code);
 void						ms_dup(int newfd, int oldfd);
-int							run_command(t_params *params, t_list *cmd_lst);
+void						run_command(t_params *params, t_list *cmd_lst);
 
 extern int					g_code;
 

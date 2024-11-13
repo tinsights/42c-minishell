@@ -14,7 +14,8 @@
 
 void	handle_sigint(int sig)
 {
-	ft_putstr_fd("^C\n", STDIN_FILENO);
+	if (sig)
+		ft_putstr_fd("^C\n", STDIN_FILENO);
 	rl_on_new_line();
 	rl_replace_line("", 0);
 	rl_redisplay();
