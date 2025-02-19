@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   minishell.h                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: tjegades <marvin@42.fr>                    +#+  +:+       +#+        */
+/*   By: tjegades <tjegades@student.42singapore.    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/04/20 11:17:57 by tjegades          #+#    #+#             */
-/*   Updated: 2024/04/20 11:17:58 by tjegades         ###   ########.fr       */
+/*   Updated: 2025/02/19 17:25:19 by tjegades         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,15 +15,27 @@
 # include "libft.h"
 # include <errno.h>
 # include <fcntl.h>
-# include <readline/history.h>
+# include <stdio.h>
 # include <readline/readline.h>
+# include <readline/history.h>
 # include <signal.h>
 # include <stdbool.h>
-# include <stdio.h>
 # include <stdlib.h>
 # include <sys/types.h>
 # include <sys/wait.h>
 # include <unistd.h>
+
+
+# ifdef __APPLE__
+# include <crt_externs.h>
+# define __environ (*_NSGetEnviron())
+# define rl_clear_history() (clear_history());
+# define rl_catch_signals()
+# else
+	extern char **__environ;
+# endif
+
+#define UNUSED(x) (void)(x)
 
 typedef enum e_redir_type
 {

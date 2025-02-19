@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   main.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: tjegades <marvin@42.fr>                    +#+  +:+       +#+        */
+/*   By: tjegades <tjegades@student.42singapore.    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/20 10:15:00 by tjegades          #+#    #+#             */
-/*   Updated: 2024/03/20 10:15:26 by tjegades         ###   ########.fr       */
+/*   Updated: 2025/02/19 17:38:06 by tjegades         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -63,9 +63,12 @@ bool	run_line(t_params *params)
 	return (true);
 }
 
-int	main(int ac, char **av, char **envp)
+int	main(int _ac, char **_av, char **envp)
 {
 	t_params	params;
+
+	UNUSED(_ac);
+	UNUSED(_av);
 
 	ft_memset(&params, 0, sizeof(t_params));
 	init_io(&params);

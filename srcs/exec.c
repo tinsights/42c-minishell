@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   exec.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: tjegades <marvin@42.fr>                    +#+  +:+       +#+        */
+/*   By: tjegades <tjegades@student.42singapore.    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/04/23 12:27:42 by tjegades          #+#    #+#             */
-/*   Updated: 2024/04/23 12:27:54 by tjegades         ###   ########.fr       */
+/*   Updated: 2025/02/19 17:36:50 by tjegades         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -73,6 +73,7 @@ void	run_parent(t_params *params, t_list *cmd_lst, t_cmd *cmd, int p_fd[2])
 {
 	int	code;
 
+	UNUSED(cmd);
 	if (cmd_lst->next)
 	{
 		close(p_fd[1]);

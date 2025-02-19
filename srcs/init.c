@@ -3,16 +3,16 @@
 /*                                                        :::      ::::::::   */
 /*   init.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: tjegades <marvin@42.fr>                    +#+  +:+       +#+        */
+/*   By: tjegades <tjegades@student.42singapore.    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/04/23 12:22:37 by tjegades          #+#    #+#             */
-/*   Updated: 2024/04/23 12:22:38 by tjegades         ###   ########.fr       */
+/*   Updated: 2025/02/19 17:37:55 by tjegades         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "minishell.h"
 
-void	handle_sigint(int sig)
+void	handle_sigint(int _sig)
 {
 	if (sig)
 		ft_putstr_fd("^C\n", STDIN_FILENO);

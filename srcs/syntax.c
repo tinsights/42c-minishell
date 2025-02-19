@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   syntax.c                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: tjegades <marvin@42.fr>                    +#+  +:+       +#+        */
+/*   By: tjegades <tjegades@student.42singapore.    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/04/23 12:01:36 by tjegades          #+#    #+#             */
-/*   Updated: 2024/04/23 12:01:36 by tjegades         ###   ########.fr       */
+/*   Updated: 2025/02/19 17:28:00 by tjegades         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,9 +14,6 @@
 
 t_redir_type	get_redir_type(char *line)
 {
-	int	i;
-
-	i = 0;
 	if (!ft_strncmp(line, ">>", 2))
 		return (out_append);
 	else if (!ft_strncmp(line, "<<", 2))
