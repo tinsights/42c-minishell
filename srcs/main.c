@@ -6,7 +6,7 @@
 /*   By: tjegades <tjegades@student.42singapore.    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/20 10:15:00 by tjegades          #+#    #+#             */
-/*   Updated: 2025/02/19 17:38:06 by tjegades         ###   ########.fr       */
+/*   Updated: 2025/02/19 17:46:18 by tjegades         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -74,7 +74,7 @@ int	main(int _ac, char **_av, char **envp)
 	init_io(&params);
 	init_env(&params, envp);
 	signal(SIGQUIT, SIG_IGN);
-	while (ac || av)
+	while (true)
 	{
 		params.sa.sa_handler = &handle_sigint;
 		sigaction(SIGINT, &params.sa, NULL);

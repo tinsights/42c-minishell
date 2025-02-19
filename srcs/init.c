@@ -6,7 +6,7 @@
 /*   By: tjegades <tjegades@student.42singapore.    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/04/23 12:22:37 by tjegades          #+#    #+#             */
-/*   Updated: 2025/02/19 17:37:55 by tjegades         ###   ########.fr       */
+/*   Updated: 2025/02/19 17:46:28 by tjegades         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,7 @@
 
 void	handle_sigint(int _sig)
 {
-	if (sig)
+	if (_sig)
 		ft_putstr_fd("^C\n", STDIN_FILENO);
 	rl_on_new_line();
 	rl_replace_line("", 0);
