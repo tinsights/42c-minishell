@@ -6,19 +6,21 @@ INC = -Ilibft/includes -Iincs
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-    # macOS-specific code here
+	# might be version dependent, unsure
+	# also have to have readline installed
 	INC += -I/opt/homebrew/opt/readline/include
 	LIBFLAGS += -L/opt/homebrew/opt/readline/lib -L/usr/local/lib
 endif
-
 
 LIBDIR = libft/
 LIBFT = $(LIBDIR)/libft.a
 
 SRCDIR = srcs/
+OBJDIR = objs/
+INCDIR = incs/
 
-HDRS = $(addprefix ./incs/, minishell.h)
-SRCS = $(addprefix $(SRCDIR), main.c \
+HDRS = $(addprefix $(INCDIR), minishell.h)
+SRCS =  main.c \
 		init.c \
 		env_builtins.c \
 		builtins.c \
@@ -29,16 +31,16 @@ SRCS = $(addprefix $(SRCDIR), main.c \
 		parser.c \
 		heredocs.c \
 		exec_utils.c \
-		exec.c)
+		exec.c
 
-OBJS = $(SRCS:.c=.o)
+OBJS = $(addprefix $(OBJDIR), $(SRCS:.c=.o))
 
 all: $(NAME)
 
 $(NAME): $(OBJS) $(LIBFT)
 	cc $(CFLAGS) $(OBJS) $(LIBFLAGS) $(INC) -o $(NAME)
 
-$(SRCDIR)%.o: $(SRCDIR)%.c $(HDRS)
+$(OBJDIR)%.o: $(SRCDIR)%.c $(HDRS)
 	cc $(CFLAGS) -c $< $(INC) -o $@
 
 $(LIBFT):
