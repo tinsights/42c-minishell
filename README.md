@@ -2,7 +2,9 @@
 
 ## Overview
 
-Minishell is a simple shell implementation written in C. The purpose of this project was to primarily to learn the inner workings of a shell, including but not limited to: parsing input, managing file descriptors, piping, forking and executing commands and binaries.
+Minishell is a simple shell implementation written in C. The primary purpose of this project was to to learn the inner workings of a shell, including but not limited to: parsing input, managing file descriptors, piping, forking and executing commands and binaries.
+
+Standard C practices apply, all memory is managed manually and file descriptors are closed once used. No leaks.
 
 ## Features
 
