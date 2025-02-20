@@ -6,7 +6,7 @@
 /*   By: tjegades <tjegades@student.42singapore.    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/03/20 10:15:00 by tjegades          #+#    #+#             */
-/*   Updated: 2025/02/19 17:46:18 by tjegades         ###   ########.fr       */
+/*   Updated: 2025/02/20 08:56:19 by tjegades         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -80,7 +80,7 @@ int	main(int _ac, char **_av, char **envp)
 		sigaction(SIGINT, &params.sa, NULL);
 		free_str(&(params.line));
 		params.interactive = true;
-		params.line = readline("minishell$> ");
+		params.line = readline("minishell 🥥$> ");
 		set_g_code(g_code);
 		if (params.line && *params.line)
 			if (!run_line(&params))
@@ -114,7 +114,7 @@ void	ms_exit(t_params *params, int code, bool print)
 	free(__environ);
 	free_str(&(params->line));
 	if (print && isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
-		ft_putstr_fd("exit\n", 2);
+		ft_putstr_fd("Goodbye~\n", 2);
 	rl_clear_history();
 	close(params->default_io[0]);
 	close(params->default_io[1]);
