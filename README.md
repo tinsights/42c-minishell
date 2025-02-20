@@ -2,7 +2,7 @@
 
 ## Overview
 
-Minishell is a simple shell implementation written in C. It provides a lightweight command-line interface that allows users to execute commands, manage processes, and navigate the file system. This project serves as an educational tool for understanding shell concepts, process management, and system calls in Unix-like operating systems.
+Minishell is a simple shell implementation written in C. The purpose of this project was to primarily to learn the inner workings of a shell, including but not limited to: parsing input, managing file descriptors, piping, forking and executing commands and binaries.
 
 ## Features
 
@@ -16,14 +16,14 @@ Minishell is a simple shell implementation written in C. It provides a lightweig
 
 To build and run Minishell, you will need:
 
-- A C compiler (e.g., gcc)
-- Basic understanding of C programming and Unix/Linux shell concepts
+- A C compiler
+- Readline installed (brew install readline)
 
 ## Installation
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/yourusername/minishell.git
+   git clone https://github.com/tinsights/minishell.git
    cd minishell
    ```
 
@@ -77,13 +77,5 @@ Minishell supports several built-in commands:
 - `cd [directory]`: Change the current directory.
 - `exit`: Exit the shell.
 - `env`: Display the current environment variables.
-
-## Contributing
-
-Contributions are welcome! If you would like to contribute to this project, please fork the repository and submit a pull request. Any feedback or suggestions for improvement are also appreciated.
-
-## Contact
-
-For questions or feedback, please open an issue in the GitHub repository.
 
 ---
