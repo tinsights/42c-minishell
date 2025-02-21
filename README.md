@@ -4,8 +4,6 @@
 
 Minishell is a simple shell implementation written in C. The primary purpose of this project was to to learn the inner workings of a shell, including but not limited to: parsing input, managing file descriptors, piping, forking and executing commands and binaries.
 
-Standard C practices apply, all memory is managed manually and file descriptors are closed once used. No leaks.
-
 ## Features
 
 - **Command Execution**: Execute built-in and external commands.
@@ -13,6 +11,11 @@ Standard C practices apply, all memory is managed manually and file descriptors 
 - **Input/Output Redirection**: Support for redirecting input and output using `>`, `<`, and `>>`.
 - **Piping**: Ability to pipe the output of one command to the input of another using `|`.
 - **Custom Built-in Commands**: Includes basic built-in commands like `cd`, `env`, `pwd`, `export`, `unset` and `exit`.
+
+## Demo
+
+https://github.com/user-attachments/assets/77d865c8-9fe4-4736-9c47-735aa08f5605
+
 
 ## Requirements
 
